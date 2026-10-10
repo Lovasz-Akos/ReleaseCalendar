@@ -1,17 +1,29 @@
 # Steam Release Calendar — Dockge stack
 #
-# Put the API key in this stack's .env file (Dockge has an editor for it):
+# Put these in this stack's .env file (Dockge has an editor for it):
+#   STEAM_ID=76561198xxxxxxxxx
 #   STEAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#   TZ=Europe/Budapest
 #
-# Requires the repo in the stack directory, because `build` needs a context.
-# See the image: variant in deploy/MANUAL-DOCKER.md if you'd rather not build.
+# The image is built and published by .github/workflows/build.yml on every push
+# to main, so updating is `docker compose pull && docker compose up -d` — or the
+# Update button in Dockge. No build context needed on the server.
+#
+# While the GitHub repo is private the package is private too, so the server
+# needs to authenticate once:
+#   echo <PAT with read:packages> | docker login ghcr.io -u <github-user> --password-stdin
+# See deploy/MANUAL-DOCKER.md for the alternative (making just the package public).
 
 services:
   releasecalendar:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: releasecalendar:local
+    image: ghcr.io/lovasz-akos/releasecalendar:latest
+
+    # To build locally instead of pulling, uncomment this and run
+    # `docker compose up -d --build`:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+
     container_name: releasecalendar
     restart: unless-stopped
 
@@ -30,8 +42,8 @@ services:
       Calendar__Language: "english"
       Calendar__RecentlyReleasedDays: "180"
 
-      # Lives on the named volume below, so rebuilding the image keeps the
-      # delay history — the one thing that cannot be refetched from Steam.
+      # Lives on the named volume below, so pulling a new image keeps the delay
+      # history — the one thing that cannot be refetched from Steam.
       Calendar__DatabasePath: "/data/calendar.db"
 
       # Only affects log timestamps; release dates are handled as plain dates.

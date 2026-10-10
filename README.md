@@ -144,3 +144,18 @@ Checked live on 2026-10-10:
 | `steamcommunity.com/.../games?xml=1` | — | dead: HTTP 302 to `/login` |
 
 No endpoint sends `Access-Control-Allow-Origin`; `OPTIONS` returns 405.
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE).
+
+Copyright (C) 2026 Lovász Ákos
+
+This program is free software: you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version. It is distributed in the
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+Copyleft, not just attribution: anyone distributing a modified version must also release
+their source under the GPL.

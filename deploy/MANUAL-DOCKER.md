@@ -1,26 +1,41 @@
 # Docker / Dockge deployment
 
 The app is configured entirely through environment variables, so there is nothing to
-edit inside the image. Two routes, depending on whether you want the server to build.
+edit inside the image. Three routes, in order of least ongoing effort.
 
-Set these once per shell and the commands below paste as-is:
+Routes B and C need a target host; set these once per shell so their commands paste
+as-is:
 
 ```bash
 SERVER=192.168.1.50      # your server's address
 APPUSER=youruser         # the account the service runs as
 ```
-## Route A — Dockge builds it (recommended)
 
-Dockge runs `docker compose` inside the stack directory, so a `build:` context works as
-long as the repo is sitting there.
+## Route A — pull the published image (recommended)
+
+`.github/workflows/build.yml` runs the test suite on every push to `main` and, only if it
+passes, builds and pushes `ghcr.io/lovasz-akos/releasecalendar:latest`. The server never
+builds anything, so this is genuinely just compose text in Dockge.
+
+### One-time: let the server pull from GHCR
+
+While the repo is private the package is private too. Two options:
+
+**Authenticate the server** (keeps the image private):
 
 ```bash
-sudo mkdir -p /opt/stacks/releasecalendar
-sudo chown "$USER" /opt/stacks/releasecalendar
-git clone <this repo> /opt/stacks/releasecalendar
+# github.com/settings/tokens -> classic token, scope: read:packages
+echo <PAT> | docker login ghcr.io -u <github-user> --password-stdin
 ```
 
-In Dockge: the stack appears automatically. Add the key to its `.env`:
+**Or make just the package public** (repo stays private): on the package page →
+Package settings → Change visibility → Public. The image contains no secrets — all
+configuration arrives as environment variables — so this is a reasonable trade for
+never dealing with registry auth again. It does publish the compiled app.
+
+### Then
+
+Paste the contents of `compose.yaml` into a new Dockge stack, fill in the `.env`:
 
 ```
 STEAM_ID=76561198xxxxxxxxx
@@ -28,12 +43,40 @@ STEAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TZ=Europe/Budapest
 ```
 
-Then **Deploy**. First build pulls the SDK image (~1 GB) and takes a couple of minutes;
-later builds reuse the layer cache and take seconds.
+and Deploy.
 
-Upgrades: `git pull` in the stack directory, then **Rebuild** in Dockge.
+### Updating
 
-## Route B — no build on the server
+```bash
+docker compose pull && docker compose up -d
+```
+
+Or the **Update** button in Dockge. Image tags available:
+
+| Tag | Moves | Use for |
+|---|---|---|
+| `latest` | every green push to `main` | normal use |
+| `sha-abc1234` | never | pinning, or rolling back |
+| `1.2.3`, `1.2` | git tags `v*` | if you start tagging releases |
+
+To roll back, point the stack at a `sha-` tag and redeploy. The named volume is
+untouched by an image change, so the database and delay history survive.
+
+## Route B — build on the server
+
+Only needed if you'd rather not use a registry. Clone the repo into the stack directory
+and uncomment the `build:` block in `compose.yaml`:
+
+```bash
+sudo mkdir -p /opt/stacks/releasecalendar
+sudo chown "$USER" /opt/stacks/releasecalendar
+git clone https://github.com/Lovasz-Akos/ReleaseCalendar /opt/stacks/releasecalendar
+```
+
+Dockge picks the stack up; upgrades are `git pull` then **Rebuild**. First build pulls the
+SDK image (~1 GB) and takes a couple of minutes; later builds reuse the layer cache.
+
+## Route C — no build, no registry
 
 Publish framework-dependent output locally and bind-mount it into the stock runtime
 image. Pure compose, no Dockerfile, no SDK on the server — but you re-copy the output
