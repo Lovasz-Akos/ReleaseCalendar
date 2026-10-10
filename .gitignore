@@ -16,6 +16,10 @@ obj/
 ## Publish output and deployment tarballs (160 MB+, rebuilt by deploy/deploy.sh)
 artifacts/
 
+## Data Protection key ring — generated per instance, and it lands next to the
+## database, which for local dev is inside the project.
+dataprotection-keys/
+
 ## Local run logs
 applog*.txt
 apperr*.txt
