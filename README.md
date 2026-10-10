@@ -126,6 +126,27 @@ That means:
 Prices are shown using Steam's own formatted strings rather than rebuilt from cents —
 `19,99€` and `4 299 Ft` don't survive a naive currency format.
 
+## Review scores
+
+`include_reviews` rides along in the same `GetItems` call as prices — again no extra
+requests. Shown only where a buy decision is live: the "out now, still on your wishlist"
+tier and the Sales page.
+
+It needs no per-tier switch because it is self-limiting: an unreleased game has no reviews,
+so nothing renders. That matters because Steam returns a **structurally valid** summary for
+unreleased games reading `0% of 0 reviews`, labelled "No user reviews". The review *count*
+decides whether there's a score — never the percentage — or every upcoming game would
+display a damning 0%.
+
+Two cues, both with the number present so neither relies on colour:
+
+- **weak** (<70% positive) is tinted, because "don't bother" is the actionable signal; a
+  good score needs no decoration
+- **thin** (<50 reviews) gets a dashed edge, so "100% of 20" doesn't read as more solid
+  than "97% of 215,621"
+
+The tooltip always carries the percentage, the sample size and Steam's own wording.
+
 ## Layout
 
 ```

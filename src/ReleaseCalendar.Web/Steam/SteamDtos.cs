@@ -54,6 +54,8 @@ public sealed class StoreItem
     /// <summary>Absent for free games and for anything not yet purchasable.</summary>
     [JsonPropertyName("best_purchase_option")] public BestPurchaseOption? BestPurchaseOption { get; set; }
 
+    [JsonPropertyName("reviews")] public StoreReviews? Reviews { get; set; }
+
     /// <summary>Some items carry the id in "id" rather than "appid".</summary>
     public int ResolvedAppId => AppId != 0 ? AppId : Id;
 }
@@ -93,6 +95,25 @@ public sealed class ActiveDiscount
     [JsonPropertyName("discount_amount")] public string? DiscountAmount { get; set; }
     [JsonPropertyName("discount_description")] public string? DiscountDescription { get; set; }
     [JsonPropertyName("discount_end_date")] public long? DiscountEndDate { get; set; }
+}
+
+public sealed class StoreReviews
+{
+    /// <summary>All languages — this is the figure the store page headlines.</summary>
+    [JsonPropertyName("summary_filtered")] public ReviewSummary? SummaryFiltered { get; set; }
+
+    [JsonPropertyName("summary_language_specific")] public ReviewSummary? SummaryLanguageSpecific { get; set; }
+}
+
+public sealed class ReviewSummary
+{
+    [JsonPropertyName("review_count")] public int ReviewCount { get; set; }
+    [JsonPropertyName("percent_positive")] public int PercentPositive { get; set; }
+
+    /// <summary>Steam's bucketed score, roughly 1-9.</summary>
+    [JsonPropertyName("review_score")] public int ReviewScore { get; set; }
+
+    [JsonPropertyName("review_score_label")] public string? ReviewScoreLabel { get; set; }
 }
 
 public sealed class StoreAssets

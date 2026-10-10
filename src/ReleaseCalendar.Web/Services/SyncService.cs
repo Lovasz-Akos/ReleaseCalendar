@@ -181,6 +181,14 @@ public sealed class SyncService(
                         run.DateChanges++;
                     }
 
+                    // ---- reviews -----------------------------------------------
+                    var reviews = ReviewMapper.Map(item.Reviews);
+
+                    app.ReviewPercentPositive = reviews.Percent;
+                    app.ReviewCount = reviews.Count;
+                    app.ReviewScore = reviews.Score;
+                    app.ReviewLabel = reviews.Label;
+
                     // ---- price -------------------------------------------------
                     var price = PriceMapper.Map(item.BestPurchaseOption);
 

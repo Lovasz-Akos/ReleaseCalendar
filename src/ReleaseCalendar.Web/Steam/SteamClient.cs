@@ -49,8 +49,9 @@ public sealed class SteamClient(HttpClient http, ILogger<SteamClient> log)
                     include_assets = true,
                     include_basic_info = true,
 
-                    // Free: the prices ride along in the same response.
+                    // Free: prices and review scores ride along in the same response.
                     include_best_purchase_option = true,
+                    include_reviews = true,
                 },
             });
 

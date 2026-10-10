@@ -5,6 +5,29 @@ using ReleaseCalendar.Web.Steam;
 
 namespace ReleaseCalendar.Web.Services;
 
+/// <summary>
+/// A review score worth showing. Only constructed when there are actual reviews, so a
+/// null here means "no data" rather than "nobody liked it".
+/// </summary>
+public readonly record struct ReviewView(int Percent, int Count, string? Label)
+{
+    /// <summary>Steam's own wording plus the sample size — the number alone hides both.</summary>
+    public string Tooltip => $"{Percent}% positive of {Count:N0} reviews"
+                           + (Label is { Length: > 0 } l ? $" — {l}" : "");
+
+    /// <summary>A low score is the actionable signal; a good one needs no colour.</summary>
+    public bool IsWeak => Percent < 70;
+
+    /// <summary>
+    /// Too few reviews for the percentage to mean much. "100% of 20" would otherwise
+    /// outrank "97% of 215,621" on a sorted list, which is backwards.
+    /// </summary>
+    public bool IsThinSample => Count < 50;
+
+    public static ReviewView? From(int? percent, int? count, string? label) =>
+        percent is { } p && count is > 0 ? new ReviewView(p, count.Value, label) : null;
+}
+
 /// <summary>One thing that happens on a date: a release, or a game leaving Early Access.</summary>
 public sealed record CalendarEvent(
     int AppId,
@@ -17,7 +40,8 @@ public sealed record CalendarEvent(
     bool Owned,
     bool Wishlisted,
     bool IsComingSoon = false,
-    bool Resolved = true)
+    bool Resolved = true,
+    ReviewView? Reviews = null)
 {
     /// <summary>Where this sits on a grid: the start of the period it names, not Valve's placeholder.</summary>
     public DateOnly? GridDate => ReleaseMapper.PeriodStart(Date, Precision);
@@ -80,6 +104,7 @@ public sealed record SaleRow(
     DateTime? SaleSeenUtc,
     bool IsNew,
     bool Owned,
+    ReviewView? Reviews,
     int? LowestEverCents,
     IReadOnlyList<(DateTime SeenUtc, int FinalCents)> Points)
 {
@@ -172,13 +197,15 @@ public sealed class CalendarQueries(
 
             events.Add(new CalendarEvent(
                 a.AppId, a.Name, EventKind.Release, a.ReleaseDate, a.Precision,
-                a.CustomMessage, a.CapsuleUrl, r.Owned, r.Wishlisted, a.IsComingSoon, a.Resolved));
+                a.CustomMessage, a.CapsuleUrl, r.Owned, r.Wishlisted, a.IsComingSoon, a.Resolved,
+                ReviewView.From(a.ReviewPercentPositive, a.ReviewCount, a.ReviewLabel)));
 
             // A dated 1.0 launch is a second, separate event for the same app.
             if (a.EarlyAccessExitDate is { } ea)
                 events.Add(new CalendarEvent(
                     a.AppId, a.Name, EventKind.EarlyAccessExit, ea, DatePrecision.Exact,
-                    null, a.CapsuleUrl, r.Owned, r.Wishlisted, false, a.Resolved));
+                    null, a.CapsuleUrl, r.Owned, r.Wishlisted, false, a.Resolved,
+                    ReviewView.From(a.ReviewPercentPositive, a.ReviewCount, a.ReviewLabel)));
         }
 
         return events;
@@ -384,7 +411,8 @@ public sealed class CalendarQueries(
             .OrderBy(r => r.App.EarlyAccessExitDate)
             .Select(r => new CalendarEvent(
                 r.App.AppId, r.App.Name, EventKind.EarlyAccessExit, r.App.EarlyAccessExitDate,
-                DatePrecision.Exact, null, r.App.CapsuleUrl, r.Owned, r.Wishlisted, false, r.App.Resolved))
+                DatePrecision.Exact, null, r.App.CapsuleUrl, r.Owned, r.Wishlisted, false, r.App.Resolved,
+                ReviewView.From(r.App.ReviewPercentPositive, r.App.ReviewCount, r.App.ReviewLabel)))
             .ToList();
 
         var cutoff = today.AddDays(-options.Value.RecentlyReleasedDays);
@@ -458,6 +486,7 @@ public sealed class CalendarQueries(
                 r.App.SaleSeenUtc,
                 IsNew: lastRun is { } run && r.App.SaleSeenUtc is { } seen && seen >= run,
                 r.Owned,
+                ReviewView.From(r.App.ReviewPercentPositive, r.App.ReviewCount, r.App.ReviewLabel),
                 LowestEverCents: points.Count > 0 ? points.Min(x => x.FinalCents) : null,
                 Points: points);
         }).ToList();

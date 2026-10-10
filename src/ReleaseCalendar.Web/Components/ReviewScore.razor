@@ -1,0 +1,16 @@
+@* Deliberately monochrome by default. The row already spends green on the discount
+   pill, and a second colour scale would compete with it. Only a weak score gets a
+   tint, because "don't bother" is the actionable signal — a good score needs none.
+
+   A thin sample is drawn with a dashed edge: "100% of 20" should not read as more
+   solid than "97% of 215,621". The tooltip always carries the count. *@
+
+@if (Reviews is { } r)
+{
+    <span class="review @(r.IsWeak ? "weak" : null) @(r.IsThinSample ? "thin" : null)"
+          title="@r.Tooltip">@r.Percent%</span>
+}
+
+@code {
+    [Parameter] public ReviewView? Reviews { get; set; }
+}

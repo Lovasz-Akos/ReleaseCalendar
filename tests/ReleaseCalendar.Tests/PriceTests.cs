@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ReleaseCalendar.Web;
 using ReleaseCalendar.Web.Data;
+using ReleaseCalendar.Web.Services;
 using ReleaseCalendar.Web.Steam;
 using Xunit;
 
@@ -385,5 +386,122 @@ public class SalesTests
         await using var db = host.NewDb();
         Assert.Null((await db.Apps.SingleAsync()).PriceCents);
         Assert.Empty(db.PricePoints);
+    }
+}
+
+public class ReviewTests
+{
+    [Fact]
+    public void a_real_review_summary_is_mapped()
+    {
+        var mapped = ReviewMapper.Map(new StoreReviews
+        {
+            SummaryFiltered = new ReviewSummary
+            {
+                ReviewCount = 215621,
+                PercentPositive = 97,
+                ReviewScore = 9,
+                ReviewScoreLabel = "Overwhelmingly Positive",
+            },
+        });
+
+        Assert.True(mapped.HasReviews);
+        Assert.Equal(97, mapped.Percent);
+        Assert.Equal(215621, mapped.Count);
+        Assert.Equal("Overwhelmingly Positive", mapped.Label);
+    }
+
+    [Fact]
+    public void zero_reviews_is_no_score_rather_than_a_score_of_zero()
+    {
+        // This is exactly what an unreleased game returns: a complete, valid-looking
+        // block reading 0% of 0. Rendering that as "0%" would libel the game.
+        var mapped = ReviewMapper.Map(new StoreReviews
+        {
+            SummaryFiltered = new ReviewSummary
+            {
+                ReviewCount = 0,
+                PercentPositive = 0,
+                ReviewScoreLabel = "No user reviews",
+            },
+        });
+
+        Assert.False(mapped.HasReviews);
+        Assert.Null(mapped.Percent);
+        Assert.Null(mapped.Count);
+    }
+
+    [Fact]
+    public void a_missing_reviews_block_is_no_score()
+    {
+        // Delisted apps omit it entirely.
+        Assert.Null(ReviewMapper.Map(null).Percent);
+        Assert.Null(ReviewMapper.Map(new StoreReviews()).Percent);
+    }
+
+    [Fact]
+    public void the_all_language_summary_is_preferred_over_the_localised_one()
+    {
+        var mapped = ReviewMapper.Map(new StoreReviews
+        {
+            SummaryFiltered = new ReviewSummary { ReviewCount = 1000, PercentPositive = 87 },
+            SummaryLanguageSpecific = new ReviewSummary { ReviewCount = 10, PercentPositive = 40 },
+        });
+
+        Assert.Equal(87, mapped.Percent);
+        Assert.Equal(1000, mapped.Count);
+    }
+
+    [Theory]
+    [InlineData(97, false)]
+    [InlineData(70, false)]
+    [InlineData(69, true)]
+    [InlineData(31, true)]
+    public void only_a_weak_score_gets_flagged(int percent, bool expected)
+    {
+        Assert.Equal(expected, new ReviewView(percent, 100, null).IsWeak);
+    }
+
+    [Fact]
+    public void the_view_is_null_without_reviews_so_nothing_renders()
+    {
+        Assert.Null(ReviewView.From(null, null, null));
+        Assert.Null(ReviewView.From(0, 0, "No user reviews"));
+        Assert.NotNull(ReviewView.From(97, 215621, "Overwhelmingly Positive"));
+    }
+
+    [Fact]
+    public void the_tooltip_carries_the_sample_size_and_steams_wording()
+    {
+        var view = new ReviewView(97, 215621, "Overwhelmingly Positive");
+
+        Assert.Contains("97% positive", view.Tooltip);
+        Assert.Contains("215,621", view.Tooltip);
+        Assert.Contains("Overwhelmingly Positive", view.Tooltip);
+    }
+}
+
+public class ReviewSampleTests
+{
+    [Theory]
+    [InlineData(215621, false)]
+    [InlineData(50, false)]
+    [InlineData(49, true)]
+    [InlineData(20, true)]   // the real case: "100% of 20"
+    public void a_thin_sample_is_flagged(int count, bool expected)
+    {
+        Assert.Equal(expected, new ReviewView(100, count, null).IsThinSample);
+    }
+
+    [Fact]
+    public void weak_and_thin_are_independent_signals()
+    {
+        var thinButGreat = new ReviewView(100, 20, "Positive");
+        Assert.True(thinButGreat.IsThinSample);
+        Assert.False(thinButGreat.IsWeak);
+
+        var solidButBad = new ReviewView(47, 4000, "Mixed");
+        Assert.False(solidButBad.IsThinSample);
+        Assert.True(solidButBad.IsWeak);
     }
 }

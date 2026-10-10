@@ -31,6 +31,7 @@ The wishlist half needs no API key; owned games need one plus *Game details: Pub
 - [x] **C5** Unreleased — owned-but-not-out, pending 1.0s, and delisted apps kept separate
 - [x] **C6** Sales — current wishlist discounts, new-since-last-sync flagged, step-chart price history
 - [x] **C7** Vanity/profile-URL accounts resolved keylessly at startup
+- [x] **C8** Review scores on the tiers where a buy decision is live
 
 ## D — Feed
 
@@ -61,6 +62,8 @@ The wishlist half needs no API key; owned games need one plus *Game details: Pub
 | Query logging | ASP.NET redacts HttpClient query strings (`?*`), so the API key never reaches the logs. |
 | Prices | `include_best_purchase_option` rides along in `GetItems` — no extra requests. Cents arrive as **strings**; the block is **absent** for free and unreleased apps. `active_discounts[].discount_end_date` gives the sale end. |
 | Price history | Steam publishes **none**. Recorded forward from the first sync, one row per change. Nothing to backfill. |
+| Reviews | `include_reviews` rides along in `GetItems`. An unreleased game returns a valid-looking `0% of 0`, so the **count** decides whether a score exists. Delisted apps omit the block. |
+| Added fields | Bump `SteamApp.CurrentDataVersion`. Older rows then count as stale and backfill on the next sync — a migration alone leaves them NULL forever. |
 | Vanity names | `steamcommunity.com/id/<name>/?xml=1` is keyless. An unknown name returns **HTTP 200 with `<error>`** — parse the body, not the status. A vanity may be all digits, so match a steamID64 by shape. |
 
 ## Fixtures

@@ -54,9 +54,9 @@ public class SteamApp
     /// migration adds NULLs, every app still looks freshly fetched, and the feature
     /// appears broken. That is exactly how prices shipped empty.
     ///
-    /// 1 = release dates · 2 = prices
+    /// 1 = release dates · 2 = prices · 3 = review scores
     /// </summary>
-    public const int CurrentDataVersion = 2;
+    public const int CurrentDataVersion = 3;
 
     public int AppId { get; set; }
     public string Name { get; set; } = "";
@@ -112,6 +112,23 @@ public class SteamApp
 
     /// <summary>Which generation of fetched data this row holds. See <see cref="CurrentDataVersion"/>.</summary>
     public int DataVersion { get; set; }
+
+    // ---- reviews -----------------------------------------------------------
+
+    /// <summary>
+    /// Percent positive, 0-100, or null when there are no reviews to summarise.
+    /// Null rather than 0 on purpose: an unreleased game reports a structurally valid
+    /// "0% of 0 reviews", and rendering that as 0% would libel it.
+    /// </summary>
+    public int? ReviewPercentPositive { get; set; }
+
+    public int? ReviewCount { get; set; }
+
+    /// <summary>Steam's bucketed score, roughly 1-9.</summary>
+    public int? ReviewScore { get; set; }
+
+    /// <summary>Steam's own wording, e.g. "Overwhelmingly Positive".</summary>
+    public string? ReviewLabel { get; set; }
 
     public string StoreUrl => $"https://store.steampowered.com/app/{AppId}/";
 }

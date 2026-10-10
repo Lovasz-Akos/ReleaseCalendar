@@ -166,6 +166,18 @@ namespace ReleaseCalendar.Web.Migrations
                     b.Property<bool>("Resolved")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("ReviewCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ReviewLabel")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ReviewPercentPositive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ReviewScore")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("SaleSeenUtc")
                         .HasColumnType("TEXT");
 
