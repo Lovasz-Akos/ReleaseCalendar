@@ -1,0 +1,49 @@
+[Unit]
+Description=Steam Release Calendar
+Documentation=https://github.com/naara/ReleaseCalendar
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+
+WorkingDirectory=/opt/releasecalendar
+ExecStart=/opt/releasecalendar/ReleaseCalendar.Web
+
+# The API key lives here, not in appsettings.json. Root-owned, group-readable only.
+EnvironmentFile=/etc/releasecalendar.env
+
+Environment=DOTNET_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://0.0.0.0:__PORT__
+Environment=DOTNET_PrintTelemetryMessage=false
+Environment=DOTNET_NOLOGO=1
+
+# Survive reboots, transient network loss and the occasional Steam hiccup.
+Restart=always
+RestartSec=10
+
+# The cache is rebuilt from Steam in three requests, but the delay history is not
+# recoverable — so it lives outside /opt and is the only writable path.
+StateDirectory=releasecalendar
+ReadWritePaths=/var/lib/releasecalendar
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=releasecalendar
+
+[Install]
+WantedBy=multi-user.target

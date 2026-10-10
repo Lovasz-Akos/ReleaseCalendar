@@ -1,0 +1,25 @@
+# Keep the build context small and never ship local state or secrets.
+**/bin/
+**/obj/
+artifacts/
+.git/
+.gitignore
+.vs/
+.vscode/
+.idea/
+
+# Local database and logs
+*.db
+*.db-shm
+*.db-wal
+applog*.txt
+apperr*.txt
+
+# Not needed to publish the web project
+tests/
+deploy/
+*.md
+*.slnx
+
+# Dev-only config; the container is configured through environment variables
+**/appsettings.Development.json

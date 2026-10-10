@@ -11,7 +11,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<CalendarOptions>(builder.Configuration.GetSection(CalendarOptions.SectionName));
 builder.Services.AddSingleton(TimeProvider.System);
 
-var dbPath = Path.Combine(builder.Environment.ContentRootPath, "calendar.db");
+// Keep the data file outside the deployment directory when a path is configured, so an
+// upgrade that replaces the binaries can't take the cache and delay history with it.
+var configuredDbPath = builder.Configuration[$"{CalendarOptions.SectionName}:DatabasePath"];
+
+var dbPath = string.IsNullOrWhiteSpace(configuredDbPath)
+    ? Path.Combine(builder.Environment.ContentRootPath, "calendar.db")
+    : Path.GetFullPath(configuredDbPath);
+
+Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 builder.Services.AddDbContextFactory<CalendarDb>(o => o.UseSqlite($"Data Source={dbPath}"));
 
 // The only component that talks to Valve. Nothing here is reachable from a browser:

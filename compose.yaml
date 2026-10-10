@@ -1,0 +1,50 @@
+# Steam Release Calendar — Dockge stack
+#
+# Put the API key in this stack's .env file (Dockge has an editor for it):
+#   STEAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#
+# Requires the repo in the stack directory, because `build` needs a context.
+# See the image: variant in deploy/MANUAL-DOCKER.md if you'd rather not build.
+
+services:
+  releasecalendar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: releasecalendar:local
+    container_name: releasecalendar
+    restart: unless-stopped
+
+    ports:
+      - "5080:8080"
+
+    environment:
+      # Your steamID64 — the wishlist half needs no key, just a public wishlist.
+      Calendar__SteamId: "76561198214766635"
+
+      # Read from the stack .env so the key never sits in the compose text.
+      Calendar__ApiKey: "${STEAM_API_KEY:?set STEAM_API_KEY in the stack .env}"
+
+      Calendar__SyncIntervalHours: "6"
+      Calendar__CountryCode: "US"
+      Calendar__Language: "english"
+      Calendar__RecentlyReleasedDays: "180"
+
+      # Lives on the named volume below, so rebuilding the image keeps the
+      # delay history — the one thing that cannot be refetched from Steam.
+      Calendar__DatabasePath: "/data/calendar.db"
+
+      # Only affects log timestamps; release dates are handled as plain dates.
+      TZ: "${TZ:-UTC}"
+
+    volumes:
+      - releasecalendar-data:/data
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  releasecalendar-data:

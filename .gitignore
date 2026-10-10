@@ -13,6 +13,9 @@ obj/
 *.db-shm
 *.db-wal
 
+## Publish output and deployment tarballs (160 MB+, rebuilt by deploy/deploy.sh)
+artifacts/
+
 ## Local run logs
 applog*.txt
 apperr*.txt

@@ -14,6 +14,13 @@ public sealed class CalendarOptions
     /// </summary>
     public string? ApiKey { get; set; }
 
+    /// <summary>
+    /// Where the SQLite file lives. Empty means "next to the binaries", which is fine for
+    /// local development but wrong for a deployed install — keep the data outside the
+    /// directory that gets replaced on upgrade, or the delay history dies with each deploy.
+    /// </summary>
+    public string? DatabasePath { get; set; }
+
     public int SyncIntervalHours { get; set; } = 6;
 
     /// <summary>Delay before the first sync after startup, so the UI paints immediately.</summary>
