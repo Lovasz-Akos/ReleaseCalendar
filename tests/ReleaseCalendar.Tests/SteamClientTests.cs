@@ -14,10 +14,11 @@ public class SteamClientTests
 
         var items = await client.GetWishlistAsync(76561190000000000);
 
-        // The captured fixture is a real 157-item wishlist.
+        // Synthetic fixture with the exact shape of a live response, sized at 157 so the
+        // two-request chunking case stays exercised.
         Assert.Equal(157, items.Count);
         Assert.All(items, i => Assert.True(i.AppId > 0));
-        Assert.Contains(items, i => i.AppId == 612400);     // The Last Night
+        Assert.Contains(items, i => i.AppId == 999001);     // the fixture's stable marker id
         Assert.All(items, i => Assert.True(i.DateAdded > 1_000_000_000));
     }
 
@@ -63,7 +64,7 @@ public class SteamClientTests
 
         await client.GetItemsAsync(Enumerable.Range(1, 157));
 
-        // 157 appids is exactly the shape of the real wishlist: two requests, not 157.
+        // A 157-item wishlist must become two requests, not 157.
         Assert.Equal(2, handler.Requests.Count);
         Assert.All(handler.Requests, u => Assert.Contains("IStoreBrowseService/GetItems/v1", u.ToString()));
     }

@@ -85,11 +85,11 @@ dozen games launch on New Year's Eve.
 Unrecognised values degrade to `ComingSoon` rather than throwing, so a future Steam change
 can't take the app down.
 
-`Unknown` is the one that matters for a library. Delisted and region-locked apps — GTA III,
-F1 2019, *Battle vs Chess* — come back from `GetItems` with no `release` block, and often no
-name either. Mapping that to "coming soon" files them next to genuinely unannounced games:
-in this library, 22 of 612 owned games were masquerading as upcoming titles. They are
-counted and listed on their own, never in a forward-looking tier.
+`Unknown` is the one that matters for a library. Delisted and region-locked apps come back
+from `GetItems` with no `release` block, and often no name either. Mapping that to "coming
+soon" files them next to genuinely unannounced games — and a library of several hundred
+games will have dozens of them, so the Unreleased page would be mostly noise. They are
+counted and listed separately, never in a forward-looking tier.
 
 `release_from_early_access_date` is a second, separate event: a game leaving Early Access.
 No "release date" field surfaces it.

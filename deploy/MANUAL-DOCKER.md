@@ -156,7 +156,7 @@ docker logs -f releasecalendar
 Within ~10 seconds:
 
 ```
-Sync done in ####ms — 157 wishlisted, 612 owned, 769 apps refreshed, 0 date change(s), 10 request(s)
+Sync done in ####ms — 142 wishlisted, 418 owned, 560 apps refreshed, 0 date change(s), 8 request(s)
 ```
 
 Then <http://$SERVER:5080>.

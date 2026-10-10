@@ -5,7 +5,7 @@ one ASP.NET Core process. Design brief and mockups:
 https://claude.ai/code/artifact/a7895b7a-bac5-43ad-a44f-90b99cd39e2a
 
 **Account under test:** set `Calendar:SteamId` via user-secrets or the stack `.env`.
-Figures throughout refer to a 157-item public wishlist and a 612-game library.
+The wishlist half needs no API key; owned games need one plus *Game details: Public*.
 
 ---
 
@@ -38,7 +38,7 @@ Figures throughout refer to a 157-item public wishlist and a 612-game library.
 
 - [x] **E1** Unit tests green against captured fixtures (`tests/fixtures/`)
 - [x] **E2** Real end-to-end sync against the live API, numbers reconciled against known counts
-- [x] **E3** Owned-games half verified live: 612 owned, 8 batched requests
+- [x] **E3** Owned-games half verified live against a real library, batched 100 appids per request
 - [ ] **E4** Manual test by the user (click through, confirm against their own Steam account)
 
 ---
@@ -55,7 +55,7 @@ Figures throughout refer to a 157-item public wishlist and a 612-game library.
 | Placeholder dates | `date_quarter` → last day of quarter, `date_year` → Dec 31. Never render as exact. |
 | EA exits | `release_from_early_access_date` — a separate event; only future ones matter |
 | `appdetails` | 1 app/call, ~200 per 5 min, ignores `filters=`. Fallback only (DLC lists). |
-| Delisted apps | `GetItems` returns them with **no name and no `release` block** — not omitted. `Precision == Unknown` is the signal, not a missing item. 22 of 612 owned games. |
+| Delisted apps | `GetItems` returns them with **no name and no `release` block** — not omitted. `Precision == Unknown` is the signal, not a missing item; expect dozens in a library of several hundred. |
 | Query logging | ASP.NET redacts HttpClient query strings (`?*`), so the API key never reaches the logs. |
 
 ## Fixtures
