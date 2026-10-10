@@ -20,13 +20,24 @@ about two seconds.
 
 | Key | Meaning |
 |---|---|
-| `SteamId` | Your steamID64. Find it with `https://steamcommunity.com/id/<vanity>/?xml=1` |
+| `SteamId` | Your steamID64 — **not committed**; set it per-environment (see below). Find it with `https://steamcommunity.com/id/<vanity>/?xml=1` |
 | `ApiKey` | Only needed for owned games — **set it with user-secrets, not here** |
 | `SyncIntervalHours` | Background sync cadence (default 6) |
 | `CountryCode` / `Language` | Store region for names and dates (default `US` / `english`) |
 | `RecentlyReleasedDays` | How long a release stays in "out now, still wishlisted" (default 180) |
 
 The wishlist half needs **no API key** — just a public wishlist.
+
+Neither your steamID nor the key is committed: `appsettings.json` ships `"SteamId": 0`,
+which the app reports as "no steamID configured" rather than failing obscurely. Set both
+locally with user-secrets:
+
+```
+dotnet user-secrets --project src/ReleaseCalendar.Web set "Calendar:SteamId" "<your steamID64>"
+```
+
+In Docker they come from the stack `.env` as `STEAM_ID` and `STEAM_API_KEY`; under systemd,
+from `/etc/releasecalendar.env`.
 
 For owned games:
 

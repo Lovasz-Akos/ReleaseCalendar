@@ -10,7 +10,7 @@ namespace ReleaseCalendar.Tests;
 
 public class SyncServiceTests
 {
-    private const long Me = 76561198214766635;
+    private const long Me = 76561190000000000;
 
     // Built through the serializer rather than hand-written JSON so the shapes stay valid.
     private static string Wishlist(params (int AppId, int Priority)[] items) =>

@@ -3,6 +3,13 @@
 Three artifacts, five commands. Assumes a systemd Linux host; the build below is
 self-contained, so **no .NET runtime is needed on the server**.
 
+Set these once per shell and the commands below paste as-is:
+
+```bash
+SERVER=192.168.1.50      # your server's address
+APPUSER=youruser         # the account the service runs as
+```
+
 ## 0. Check the architecture first
 
 ```bash
@@ -21,20 +28,20 @@ tar -czf artifacts/releasecalendar-linux-arm64.tar.gz -C artifacts/publish-linux
 ## 1. Copy the artifacts over
 
 ```bash
-scp artifacts/releasecalendar-linux-x64.tar.gz naara@192.168.0.100:~/
-scp artifacts/releasecalendar.service          naara@192.168.0.100:~/
+scp artifacts/releasecalendar-linux-x64.tar.gz $APPUSER@$SERVER:~/
+scp artifacts/releasecalendar.service          $APPUSER@$SERVER:~/
 ```
 
 ## 2. Install (on the server, as root)
 
 ```bash
-sudo install -d -o naara -g naara -m 755 /opt/releasecalendar
+sudo install -d -o $APPUSER -g $APPUSER -m 755 /opt/releasecalendar
 sudo tar -xzf ~/releasecalendar-linux-x64.tar.gz -C /opt/releasecalendar
-sudo chown -R naara:naara /opt/releasecalendar
+sudo chown -R $APPUSER:$APPUSER /opt/releasecalendar
 sudo chmod +x /opt/releasecalendar/ReleaseCalendar.Web
 
 # Data directory — deliberately outside /opt, see "Why" below.
-sudo install -d -o naara -g naara -m 750 /var/lib/releasecalendar
+sudo install -d -o $APPUSER -g $APPUSER -m 750 /var/lib/releasecalendar
 ```
 
 ## 3. Three bits of config that have to be right
@@ -48,7 +55,7 @@ sudo tee /opt/releasecalendar/appsettings.Production.json >/dev/null <<'JSON'
   "Calendar": { "DatabasePath": "/var/lib/releasecalendar/calendar.db" }
 }
 JSON
-sudo chown naara:naara /opt/releasecalendar/appsettings.Production.json
+sudo chown $APPUSER:$APPUSER /opt/releasecalendar/appsettings.Production.json
 ```
 
 **b. API key** — as an environment file, not in `appsettings.json`:
@@ -57,7 +64,7 @@ sudo chown naara:naara /opt/releasecalendar/appsettings.Production.json
 sudo tee /etc/releasecalendar.env >/dev/null <<'ENV'
 Calendar__ApiKey=<your key>
 ENV
-sudo chown root:naara /etc/releasecalendar.env
+sudo chown root:$APPUSER /etc/releasecalendar.env
 sudo chmod 640 /etc/releasecalendar.env
 ```
 
@@ -83,13 +90,13 @@ Within ~10 seconds the log should read:
 Sync done in ####ms — 157 wishlisted, 612 owned, 769 apps refreshed, 0 date change(s), 10 request(s)
 ```
 
-Then: <http://192.168.0.100:5080>
+Then: <http://$SERVER:5080>
 
 ## Upgrading later
 
 ```bash
 sudo systemctl stop releasecalendar
-sudo rm -rf /opt/releasecalendar && sudo install -d -o naara -g naara /opt/releasecalendar
+sudo rm -rf /opt/releasecalendar && sudo install -d -o $APPUSER -g $APPUSER /opt/releasecalendar
 sudo tar -xzf ~/releasecalendar-linux-x64.tar.gz -C /opt/releasecalendar
 # re-apply appsettings.Production.json (step 3a), then:
 sudo systemctl start releasecalendar
@@ -110,7 +117,7 @@ database sat in `/opt/releasecalendar`, every upgrade would silently reset it.
 | Symptom | Cause |
 |---|---|
 | `status=203/EXEC` | `ReleaseCalendar.Web` isn't executable → `chmod +x` |
-| Starts, then `Permission denied` on the DB | `/var/lib/releasecalendar` not owned by `naara`, or missing from `ReadWritePaths` |
+| Starts, then `Permission denied` on the DB | `/var/lib/releasecalendar` not owned by `$APPUSER`, or missing from `ReadWritePaths` |
 | Reachable on the server but not from the LAN | listening on localhost — check `ASPNETCORE_URLS`, then the firewall (`sudo ufw allow 5080/tcp`) |
-| Library page shows 0 owned | API key not loaded — `sudo systemctl show releasecalendar -p Environment` won't show it (it's an `EnvironmentFile`); check the file is mode 640 and group `naara` |
+| Library page shows 0 owned | API key not loaded — `sudo systemctl show releasecalendar -p Environment` won't show it (it's an `EnvironmentFile`); check the file is mode 640 and group `$APPUSER` |
 | Wishlist syncs, owned doesn't | profile's *Game details* privacy isn't Public |

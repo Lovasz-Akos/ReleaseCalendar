@@ -4,7 +4,8 @@ Steam wishlist + library release calendar. Blazor Server (interactive server) + 
 one ASP.NET Core process. Design brief and mockups:
 https://claude.ai/code/artifact/a7895b7a-bac5-43ad-a44f-90b99cd39e2a
 
-**Account under test:** steamID64 `76561198214766635` (wishlist public, 157 items)
+**Account under test:** set `Calendar:SteamId` via user-secrets or the stack `.env`.
+Figures throughout refer to a 157-item public wishlist and a 612-game library.
 
 ---
 

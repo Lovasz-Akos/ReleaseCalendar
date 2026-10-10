@@ -3,6 +3,12 @@
 The app is configured entirely through environment variables, so there is nothing to
 edit inside the image. Two routes, depending on whether you want the server to build.
 
+Set these once per shell and the commands below paste as-is:
+
+```bash
+SERVER=192.168.1.50      # your server's address
+APPUSER=youruser         # the account the service runs as
+```
 ## Route A — Dockge builds it (recommended)
 
 Dockge runs `docker compose` inside the stack directory, so a `build:` context works as
@@ -17,6 +23,7 @@ git clone <this repo> /opt/stacks/releasecalendar
 In Dockge: the stack appears automatically. Add the key to its `.env`:
 
 ```
+STEAM_ID=76561198xxxxxxxxx
 STEAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TZ=Europe/Budapest
 ```
@@ -35,7 +42,7 @@ on every upgrade.
 ```powershell
 dotnet publish src/ReleaseCalendar.Web -c Release -o artifacts/app --nologo
 tar -czf artifacts/app.tar.gz -C artifacts/app .
-scp artifacts/app.tar.gz naara@192.168.0.100:~/
+scp artifacts/app.tar.gz $APPUSER@$SERVER:~/
 ```
 
 ```bash
@@ -58,7 +65,7 @@ services:
       - "5080:8080"
     environment:
       ASPNETCORE_URLS: "http://+:8080"
-      Calendar__SteamId: "76561198214766635"
+      Calendar__SteamId: "${STEAM_ID:?set STEAM_ID in the stack .env}"
       Calendar__ApiKey: "${STEAM_API_KEY:?set STEAM_API_KEY in the stack .env}"
       Calendar__DatabasePath: "/data/calendar.db"
       TZ: "${TZ:-UTC}"
@@ -109,7 +116,7 @@ Within ~10 seconds:
 Sync done in ####ms — 157 wishlisted, 612 owned, 769 apps refreshed, 0 date change(s), 10 request(s)
 ```
 
-Then <http://192.168.0.100:5080>.
+Then <http://$SERVER:5080>.
 
 ## Gotchas
 

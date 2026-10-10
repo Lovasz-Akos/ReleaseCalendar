@@ -9,7 +9,7 @@ namespace ReleaseCalendar.Tests;
 
 public class CalendarQueriesTests
 {
-    private const long Me = 76561198214766635;
+    private const long Me = 76561190000000000;
     private static readonly DateOnly Today = new(2026, 10, 10);
 
     private static async Task<TestHost> SeedAsync(params SteamApp[] apps)

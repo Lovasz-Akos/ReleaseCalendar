@@ -12,7 +12,7 @@ public class SteamClientTests
     {
         var client = SteamClientFactory.Create(new StubHandler(Fixtures.Wishlist));
 
-        var items = await client.GetWishlistAsync(76561198214766635);
+        var items = await client.GetWishlistAsync(76561190000000000);
 
         // The captured fixture is a real 157-item wishlist.
         Assert.Equal(157, items.Count);
@@ -27,7 +27,7 @@ public class SteamClientTests
         // Steam answers HTTP 200 with {"response":{}} — no "items" key at all.
         var client = SteamClientFactory.Create(new StubHandler(Fixtures.EmptyResponse));
 
-        var items = await client.GetWishlistAsync(76561197960287930);
+        var items = await client.GetWishlistAsync(76561190000000001);
 
         Assert.Empty(items);
     }
@@ -99,7 +99,7 @@ public class SteamClientTests
         var client = SteamClientFactory.Create(handler);
 
         // A bad key or a private library must not take down the wishlist half of a sync.
-        Assert.Null(await client.GetOwnedGamesAsync(76561198214766635, "bad-key"));
+        Assert.Null(await client.GetOwnedGamesAsync(76561190000000000, "bad-key"));
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class SteamClientTests
 
         var client = SteamClientFactory.Create(new StubHandler(json));
 
-        var games = await client.GetOwnedGamesAsync(76561198214766635, "key");
+        var games = await client.GetOwnedGamesAsync(76561190000000000, "key");
 
         Assert.NotNull(games);
         Assert.Equal(2, games.Count);

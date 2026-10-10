@@ -78,7 +78,7 @@ internal sealed class TestHost : IAsyncDisposable
 
         var services = new ServiceCollection();
         services.AddLogging(b => b.ClearProviders());
-        services.AddSingleton(Options.Create(options ?? new CalendarOptions { SteamId = 76561198214766635 }));
+        services.AddSingleton(Options.Create(options ?? new CalendarOptions { SteamId = 76561190000000000 }));
         services.AddSingleton<TimeProvider>(Clock);
         services.AddDbContextFactory<CalendarDb>(o => o.UseSqlite(_connection));
         services.AddSingleton(sp => SteamClientFactory.Create(Handler));

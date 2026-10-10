@@ -1,6 +1,5 @@
 [Unit]
 Description=Steam Release Calendar
-Documentation=https://github.com/naara/ReleaseCalendar
 After=network-online.target
 Wants=network-online.target
 

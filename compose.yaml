@@ -20,7 +20,7 @@ services:
 
     environment:
       # Your steamID64 — the wishlist half needs no key, just a public wishlist.
-      Calendar__SteamId: "76561198214766635"
+      Calendar__SteamId: "${STEAM_ID:?set STEAM_ID in the stack .env}"
 
       # Read from the stack .env so the key never sits in the compose text.
       Calendar__ApiKey: "${STEAM_API_KEY:?set STEAM_API_KEY in the stack .env}"

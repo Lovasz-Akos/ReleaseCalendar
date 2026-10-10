@@ -5,11 +5,11 @@
 # are never touched by a redeploy.
 #
 # Usage:
-#   HOST=192.168.0.100 USER=naara deploy/deploy.sh
+#   HOST=192.168.1.50 DEPLOY_USER=youruser deploy/deploy.sh
 #
 # Options (environment):
 #   HOST      target host                       (required)
-#   USER      ssh user                          (default: naara)
+#   DEPLOY_USER  ssh user on the target            (required)
 #   SSH_KEY   private key for the deploy        (default: ~/.ssh/releasecal_deploy)
 #   RID       dotnet runtime identifier         (default: linux-x64)
 #   PORT      port to listen on                 (default: 5080)
@@ -19,7 +19,9 @@
 set -euo pipefail
 
 HOST="${HOST:?set HOST}"
-USER="${USER:-naara}"
+# Deliberately not named USER: the shell already defines that, so a
+# default would silently resolve to the *local* username.
+DEPLOY_USER="${DEPLOY_USER:?set DEPLOY_USER (the ssh user on the target)}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/releasecal_deploy}"
 RID="${RID:-linux-x64}"
 PORT="${PORT:-5080}"
@@ -31,7 +33,7 @@ PROJECT="$REPO_ROOT/src/ReleaseCalendar.Web"
 STAGE="$REPO_ROOT/artifacts/publish-$RID"
 TARBALL="$REPO_ROOT/artifacts/releasecalendar-$RID.tar.gz"
 
-SSH=(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "$USER@$HOST")
+SSH=(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "$DEPLOY_USER@$HOST")
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
@@ -77,10 +79,10 @@ echo "$(du -h "$TARBALL" | cut -f1) -> $TARBALL"
 say "Uploading"
 "${SSH[@]}" 'rm -rf ~/releasecalendar-stage && mkdir -p ~/releasecalendar-stage'
 scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new -q \
-    "$TARBALL" "$USER@$HOST:~/releasecalendar-stage/app.tar.gz"
+    "$TARBALL" "$DEPLOY_USER@$HOST:~/releasecalendar-stage/app.tar.gz"
 
 say "Installing"
-UNIT="$(sed -e "s/__USER__/$USER/g" -e "s/__PORT__/$PORT/g" "$REPO_ROOT/deploy/releasecalendar.service")"
+UNIT="$(sed -e "s/__USER__/$DEPLOY_USER/g" -e "s/__PORT__/$PORT/g" "$REPO_ROOT/deploy/releasecalendar.service")"
 
 remote_root "set -euo pipefail
 
@@ -88,12 +90,12 @@ systemctl stop releasecalendar 2>/dev/null || true
 
 # Binaries are replaced wholesale; data and secrets are left alone.
 rm -rf /opt/releasecalendar
-install -d -o $USER -g $USER -m 755 /opt/releasecalendar
-tar -xzf /home/$USER/releasecalendar-stage/app.tar.gz -C /opt/releasecalendar
-chown -R $USER:$USER /opt/releasecalendar
+install -d -o $DEPLOY_USER -g $DEPLOY_USER -m 755 /opt/releasecalendar
+tar -xzf /home/$DEPLOY_USER/releasecalendar-stage/app.tar.gz -C /opt/releasecalendar
+chown -R $DEPLOY_USER:$DEPLOY_USER /opt/releasecalendar
 chmod +x /opt/releasecalendar/ReleaseCalendar.Web
 
-install -d -o $USER -g $USER -m 750 /var/lib/releasecalendar
+install -d -o $DEPLOY_USER -g $DEPLOY_USER -m 750 /var/lib/releasecalendar
 
 # Point the app at the data directory and the chosen port.
 cat > /opt/releasecalendar/appsettings.Production.json <<'JSON'
@@ -102,13 +104,13 @@ cat > /opt/releasecalendar/appsettings.Production.json <<'JSON'
   \"Calendar\": { \"DatabasePath\": \"/var/lib/releasecalendar/calendar.db\" }
 }
 JSON
-chown $USER:$USER /opt/releasecalendar/appsettings.Production.json
+chown $DEPLOY_USER:$DEPLOY_USER /opt/releasecalendar/appsettings.Production.json
 
 # Create the env file on first install; preserve an existing key on upgrades.
 if [ ! -f /etc/releasecalendar.env ]; then
   touch /etc/releasecalendar.env
 fi
-chown root:$USER /etc/releasecalendar.env
+chown root:$DEPLOY_USER /etc/releasecalendar.env
 chmod 640 /etc/releasecalendar.env
 
 cat > /etc/systemd/system/releasecalendar.service <<'UNITEOF'
@@ -117,7 +119,7 @@ UNITEOF
 
 systemctl daemon-reload
 systemctl enable releasecalendar >/dev/null
-rm -rf /home/$USER/releasecalendar-stage
+rm -rf /home/$DEPLOY_USER/releasecalendar-stage
 "
 
 if [ -n "$API_KEY" ]; then
@@ -127,7 +129,7 @@ umask 027
 cat > /etc/releasecalendar.env <<'ENVEOF'
 Calendar__ApiKey=$API_KEY
 ENVEOF
-chown root:$USER /etc/releasecalendar.env
+chown root:$DEPLOY_USER /etc/releasecalendar.env
 chmod 640 /etc/releasecalendar.env
 "
 fi
