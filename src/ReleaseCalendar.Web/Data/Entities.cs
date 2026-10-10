@@ -45,6 +45,19 @@ public enum EventKind
 /// </summary>
 public class SteamApp
 {
+    /// <summary>
+    /// Bumped whenever a sync starts collecting something it didn't before. Rows written
+    /// by an older build carry a lower number and are treated as stale regardless of
+    /// <see cref="FetchedUtc"/>, so one automatic refresh backfills the new columns.
+    ///
+    /// Without this, adding a field silently does nothing to an existing install: the
+    /// migration adds NULLs, every app still looks freshly fetched, and the feature
+    /// appears broken. That is exactly how prices shipped empty.
+    ///
+    /// 1 = release dates · 2 = prices
+    /// </summary>
+    public const int CurrentDataVersion = 2;
+
     public int AppId { get; set; }
     public string Name { get; set; } = "";
     public string? StoreUrlPath { get; set; }
@@ -96,6 +109,9 @@ public class SteamApp
     /// games just because nothing is known about them.
     /// </summary>
     public bool Resolved { get; set; }
+
+    /// <summary>Which generation of fetched data this row holds. See <see cref="CurrentDataVersion"/>.</summary>
+    public int DataVersion { get; set; }
 
     public string StoreUrl => $"https://store.steampowered.com/app/{AppId}/";
 }

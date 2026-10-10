@@ -172,6 +172,7 @@ Then <http://$SERVER:5080>.
 | Container runs, nothing on the LAN | the port isn't published, or the host firewall blocks 5080 (`sudo ufw allow 5080/tcp`) |
 | Library shows 0 owned | key present but the profile's *Game details* privacy isn't Public |
 | Delay history reset after an upgrade | the database wasn't on the named volume — check `Calendar__DatabasePath` is `/data/calendar.db` |
+| A new feature shows no data after an update | shouldn't happen any more: rows written by an older build carry a lower `DataVersion` and are refetched automatically on the next sync. If you see `0 apps refreshed` right after an update that added a field, that's the bug this prevents — report it. |
 
 ## Notes
 

@@ -125,6 +125,9 @@ public sealed class SyncService(
                 .Where(id => force
                           || !apps.TryGetValue(id, out var a)
                           || a.FetchedUtc == default
+                          // Written by an older build, so it is missing columns this one
+                          // populates — stale no matter how recently it was fetched.
+                          || a.DataVersion < SteamApp.CurrentDataVersion
                           || now - a.FetchedUtc >= RefreshInterval(a, today))
                 .ToList();
 
@@ -224,6 +227,7 @@ public sealed class SyncService(
 
                     if (item.Name is { Length: > 0 } name) app.Name = name;
                     app.Resolved = true;
+                    app.DataVersion = SteamApp.CurrentDataVersion;
                     app.StoreUrlPath = item.StoreUrlPath ?? app.StoreUrlPath;
                     app.IsFree = item.IsFree;
                     app.CapsuleUrl = ReleaseMapper.CapsuleUrl(item.Assets) ?? app.CapsuleUrl;

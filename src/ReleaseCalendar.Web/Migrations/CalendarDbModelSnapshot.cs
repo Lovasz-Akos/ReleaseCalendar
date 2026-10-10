@@ -116,6 +116,9 @@ namespace ReleaseCalendar.Web.Migrations
                     b.Property<string>("CustomMessage")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("DataVersion")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("DiscountEndsUtc")
                         .HasColumnType("TEXT");
 

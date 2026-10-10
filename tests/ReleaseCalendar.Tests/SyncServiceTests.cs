@@ -296,6 +296,59 @@ public class SyncServiceTests
     }
 
     [Fact]
+    public async Task a_row_written_by_an_older_build_is_refetched_even_when_fresh()
+    {
+        var stub = new SteamStub
+        {
+            WishlistJson = Wishlist((440, 0)),
+            GetItemsJson = Items(Item(440, "Team Fortress 2", releaseTs: 1191999600)),
+        };
+
+        await using var host = new TestHost(stub.Build());
+        await host.Sync.SyncAsync();
+
+        // Simulate an upgrade: the row exists and was fetched seconds ago, but predates
+        // the columns this build fills in. This is how prices shipped empty to a running
+        // install — the migration added NULLs and nothing ever looked stale.
+        await using (var db = host.NewDb())
+        {
+            var app = await db.Apps.SingleAsync();
+            app.DataVersion = SteamApp.CurrentDataVersion - 1;
+            app.PriceCents = null;
+            await db.SaveChangesAsync();
+        }
+
+        var before = stub.GetItemsRequests.Count;
+        var run = await host.Sync.SyncAsync();   // note: not forced
+
+        Assert.Equal(before + 1, stub.GetItemsRequests.Count);
+        Assert.Equal(1, run.AppsRefreshed);
+
+        await using var after = host.NewDb();
+        Assert.Equal(SteamApp.CurrentDataVersion, (await after.Apps.SingleAsync()).DataVersion);
+    }
+
+    [Fact]
+    public async Task a_current_row_is_left_alone()
+    {
+        var stub = new SteamStub
+        {
+            WishlistJson = Wishlist((440, 0)),
+            GetItemsJson = Items(Item(440, "Team Fortress 2", releaseTs: 1191999600)),
+        };
+
+        await using var host = new TestHost(stub.Build());
+        await host.Sync.SyncAsync();
+
+        var before = stub.GetItemsRequests.Count;
+        host.Clock.Advance(TimeSpan.FromHours(1));
+        await host.Sync.SyncAsync();
+
+        // The version check must not defeat the staleness cache.
+        Assert.Equal(before, stub.GetItemsRequests.Count);
+    }
+
+    [Fact]
     public async Task force_refetches_everything()
     {
         var stub = new SteamStub
