@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Release Calendar">
+  <!-- Drawn for 16px first: a solid amber tile reads on both light and dark browser
+       chrome, with the glyph knocked out in the app's own ground colour. Four shapes,
+       no thin strokes — detail below ~1.5px disappears at tab size. -->
+  <rect x="2" y="5" width="28" height="25" rx="5" fill="#eda63f"/>
+
+  <!-- Binding tabs, sitting proud of the tile. -->
+  <rect x="8.5" y="1.5" width="4" height="7" rx="2" fill="#13161c"/>
+  <rect x="19.5" y="1.5" width="4" height="7" rx="2" fill="#13161c"/>
+
+  <!-- Header band. -->
+  <rect x="2" y="5" width="28" height="7.5" fill="#13161c"/>
+
+  <!-- A single marked day: the only thing still legible at 16px. -->
+  <rect x="12" y="17" width="8" height="8" rx="2" fill="#13161c"/>
+</svg>
