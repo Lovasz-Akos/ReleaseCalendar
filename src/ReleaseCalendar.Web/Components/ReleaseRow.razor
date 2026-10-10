@@ -1,0 +1,109 @@
+@* One agenda row. Date precision is encoded in the rail colour and the weight of the date. *@
+
+<div class="rel">
+    <span class="when @(_fuzzy ? "fuzzy" : null)"><b>@_primary</b>@_secondary</span>
+    <span class="cap @_capClass"></span>
+    <span>
+        <span class="title">
+            <a href="@Event.StoreUrl" target="_blank" rel="noopener">@Event.Name</a>
+            @if (Event.Kind == EventKind.EarlyAccessExit)
+            {
+                <span class="badge ea">leaves early access</span>
+            }
+            @if (_isOut)
+            {
+                <span class="badge out">out now</span>
+            }
+            @if (Event.Owned && Event.Kind == EventKind.Release)
+            {
+                <span class="badge owned">owned</span>
+            }
+        </span>
+        <span class="sub">appid @Event.AppId · @Event.SourceLabel@_note</span>
+    </span>
+    <span class="days">@_days</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CalendarEvent Event { get; set; } = default!;
+    [Parameter, EditorRequired] public DateOnly Today { get; set; }
+
+    private string _primary = "—";
+    private string _secondary = "";
+    private string _capClass = "tba";
+    private string _days = "";
+    private string _note = "";
+    private bool _fuzzy;
+    private bool _isOut;
+
+    protected override void OnParametersSet()
+    {
+        var e = Event;
+
+        _fuzzy = e.Precision != DatePrecision.Exact;
+
+        _isOut = e.Kind == EventKind.Release
+              && e.Precision == DatePrecision.Exact
+              && !e.Owned
+              && e.Date is { } rd && rd <= Today;
+
+        _capClass = e.Kind == EventKind.EarlyAccessExit
+            ? "ea"
+            : e.Precision switch
+            {
+                DatePrecision.Exact => e.Date is { } d && d < Today ? "past" : "exact",
+                DatePrecision.Quarter => "quarter",
+                DatePrecision.Year => "year",
+                DatePrecision.ComingSoon => "soon",
+                _ => "tba",
+            };
+
+        (_primary, _secondary) = e.Precision switch
+        {
+            DatePrecision.Exact when e.Date is { } d =>
+                (d.ToString("MMM d"), d.Year == Today.Year ? d.ToString("ddd") : d.Year.ToString()),
+            DatePrecision.Quarter when e.Date is { } d =>
+                ($"Q{ReleaseMapper.Quarter(d)}", d.Year.ToString()),
+            DatePrecision.Year when e.Date is { } d =>
+                (d.Year.ToString(), ""),
+            DatePrecision.ComingSoon => ("—", "soon"),
+            _ => ("—", "TBA"),
+        };
+
+        // Say out loud that a fuzzy date is Valve's placeholder, not a real day.
+        _note = e.Precision switch
+        {
+            DatePrecision.Quarter => " · quarter only",
+            DatePrecision.Year => " · year only",
+            _ => "",
+        };
+
+        _days = DaysLabel(e, Today);
+    }
+
+    private static string DaysLabel(CalendarEvent e, DateOnly today)
+    {
+        if (e.Precision == DatePrecision.Exact && e.Date is { } d)
+        {
+            var delta = d.DayNumber - today.DayNumber;
+            return delta switch
+            {
+                0 => "today",
+                1 => "tomorrow",
+                -1 => "yesterday",
+                > 0 => $"in {delta}d",
+                _ => $"{-delta}d ago",
+            };
+        }
+
+        if (e.Precision == DatePrecision.Quarter && e.Date is { } q)
+            return $"~Q{ReleaseMapper.Quarter(q)} {q.Year}";
+
+        if (e.Precision == DatePrecision.Year && e.Date is { } y)
+            return y.Year == today.Year ? "this year"
+                 : y.Year == today.Year + 1 ? "next year"
+                 : y.Year.ToString();
+
+        return "";
+    }
+}

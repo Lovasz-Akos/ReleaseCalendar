@@ -1,0 +1,131 @@
+@page "/unreleased"
+@inherits DataComponent
+@inject CalendarQueries Queries
+@inject IOptions<CalendarOptions> Options
+
+<PageTitle>Unreleased — ReleaseCal</PageTitle>
+
+<div class="pagehead">
+    <div>
+        <h1>Owned, not out yet</h1>
+        <div class="sub">games you've already paid for that haven't launched — and Early Access ones still heading for 1.0</div>
+    </div>
+</div>
+
+@if (_view is null)
+{
+    <div class="empty"><div class="eb">Loading…</div></div>
+}
+else if (!Options.Value.HasOwnedGamesAccess)
+{
+    <div class="empty">
+        <div class="et">Owned games aren't syncing</div>
+        <p class="eb">
+            This page reads your Steam library, which needs a Web API key and your profile's
+            <em>Game details</em> set to Public. See Settings.
+        </p>
+    </div>
+}
+else
+{
+    <div class="statrow">
+        <div class="st"><div class="sv">@_view.PendingCount</div><div class="sl">not out yet</div></div>
+        <div class="st"><div class="sv">@_view.EarlyAccessExits.Count</div><div class="sl">1.0 incoming</div></div>
+        <div class="st"><div class="sv">@_view.OwnedCount</div><div class="sl">owned total</div></div>
+        <div class="st" title="Delisted or region-locked — the store returns no release data for these">
+            <div class="sv">@_view.NoStoreData.Count</div><div class="sl">no store data</div>
+        </div>
+    </div>
+
+    @if (_view.Groups.Count == 0 && _view.EarlyAccessExits.Count == 0)
+    {
+        <div class="empty">
+            <div class="et">Nothing pending</div>
+            <p class="eb">
+                Everything in your library has shipped. Pre-orders and unreleased purchases
+                show up here the moment they appear in your Steam account.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="agenda">
+            @foreach (var group in _view.Groups)
+            {
+                <div>
+                    <div class="tierhead">@group.Title <span class="ct">· @group.Note</span></div>
+
+                    @if (group.Tier == DatePrecision.Tba)
+                    {
+                        <div class="tbagrid">
+                            @foreach (var e in group.Events)
+                            {
+                                <a class="tbachip" href="@e.StoreUrl" target="_blank" rel="noopener">
+                                    @e.Name
+                                    @if (e.CustomMessage is { Length: > 0 } msg)
+                                    {
+                                        <span class="q">· @msg.ToLowerInvariant()</span>
+                                    }
+                                </a>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var e in group.Events)
+                        {
+                            <ReleaseRow Event="e" Today="_today" />
+                        }
+                    }
+                </div>
+            }
+
+            @if (_view.EarlyAccessExits.Count > 0)
+            {
+                <div>
+                    <div class="tierhead">
+                        Leaving Early Access
+                        <span class="ct">· already playable, 1.0 dated</span>
+                    </div>
+                    @foreach (var e in _view.EarlyAccessExits)
+                    {
+                        <ReleaseRow Event="e" Today="_today" />
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (_view.NoStoreData.Count > 0)
+    {
+        <div class="fuzzybar" style="margin-top:24px">
+            <div class="fh">
+                @_view.NoStoreData.Count owned app(s) the store won't describe
+            </div>
+            <div class="sub" style="margin-bottom:8px">
+                Delisted or region-locked: Steam returns these with no release date, and often
+                no name either. They are <em>not</em> upcoming games — they're in your library
+                and gone from the store.
+            </div>
+            <div class="tbagrid">
+                @foreach (var e in _view.NoStoreData)
+                {
+                    <a class="tbachip" href="@e.StoreUrl" target="_blank" rel="noopener">
+                        @e.Name
+                    </a>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private OwnedUnreleasedView? _view;
+    private DateOnly _today;
+
+    protected override async Task LoadAsync()
+    {
+        _today = Queries.Today;
+        _view = await Queries.OwnedUnreleasedAsync();
+    }
+}

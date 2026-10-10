@@ -1,0 +1,89 @@
+﻿@inherits LayoutComponentBase
+@inject CalendarQueries Queries
+@inject SyncService Sync
+@inject IOptions<CalendarOptions> Options
+@implements IDisposable
+
+<nav class="appnav">
+    <span class="logo">Release<em>Cal</em></span>
+
+    <NavLink class="tab" ActiveClass="on" href="" Match="NavLinkMatch.All">Up Next</NavLink>
+    <NavLink class="tab" ActiveClass="on" href="month">Month</NavLink>
+    <NavLink class="tab" ActiveClass="on" href="unreleased">Unreleased</NavLink>
+    <NavLink class="tab" ActiveClass="on" href="library">Library</NavLink>
+    <NavLink class="tab" ActiveClass="on" href="delays">Delays</NavLink>
+    <NavLink class="tab" ActiveClass="on" href="settings">Settings</NavLink>
+
+    <span class="who">
+        <span>@_status</span>
+        <button class="syncbtn" @onclick="OnSyncClick" disabled="@Sync.IsSyncing">
+            @(Sync.IsSyncing ? "syncing…" : "sync now")
+        </button>
+    </span>
+</nav>
+
+<main>
+    @Body
+</main>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Something broke on the server.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private string _status = "loading…";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Sync.SyncCompleted += OnSyncCompletedAsync;
+        await RefreshStatusAsync();
+    }
+
+    private async Task OnSyncClick()
+    {
+        await Sync.SyncAsync();
+    }
+
+    private async Task OnSyncCompletedAsync()
+    {
+        await RefreshStatusAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        var run = await Queries.LastSyncAsync();
+        var id = Options.Value.SteamId;
+
+        if (run is null)
+        {
+            _status = id == 0 ? "no steamID configured" : "never synced";
+            return;
+        }
+
+        if (run.Error is not null)
+        {
+            _status = $"last sync failed · {Ago(run.StartedUtc)}";
+            return;
+        }
+
+        var tracked = run.WishlistItems + run.OwnedItems;
+        _status = $"synced {Ago(run.FinishedUtc ?? run.StartedUtc)} · {tracked} tracked";
+    }
+
+    private static string Ago(DateTime utc)
+    {
+        var span = DateTime.UtcNow - utc;
+        return span switch
+        {
+            { TotalSeconds: < 60 } => "just now",
+            { TotalMinutes: < 60 } => $"{(int)span.TotalMinutes}m ago",
+            { TotalHours: < 24 } => $"{(int)span.TotalHours}h ago",
+            _ => $"{(int)span.TotalDays}d ago",
+        };
+    }
+
+    public void Dispose() => Sync.SyncCompleted -= OnSyncCompletedAsync;
+}

@@ -1,0 +1,22 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+## App data — rebuilt from Steam in ~2 seconds and 3 requests,
+## but note DateChanges history cannot be rebuilt, so back this up if you care.
+*.db
+*.db-shm
+*.db-wal
+
+## Local run logs
+applog*.txt
+apperr*.txt
+
+## Secrets never belong in the repo — use `dotnet user-secrets`
+appsettings.Local.json
+*.secrets.json

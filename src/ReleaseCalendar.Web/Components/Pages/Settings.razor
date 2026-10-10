@@ -1,0 +1,150 @@
+@page "/settings"
+@inherits DataComponent
+@inject CalendarQueries Queries
+@inject IOptions<CalendarOptions> Options
+@inject NavigationManager Nav
+
+<PageTitle>Settings — ReleaseCal</PageTitle>
+
+<div class="pagehead">
+    <div>
+        <h1>Settings</h1>
+        <div class="sub">configuration, sync health and the calendar feed URL</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Account</h2>
+    <p class="hint">
+        Edit these in <code>appsettings.json</code> under <code>Calendar</code>, then restart.
+        Keep the API key out of that file — use
+        <code>dotnet user-secrets set "Calendar:ApiKey" "…"</code> instead.
+    </p>
+    <dl class="kv">
+        <dt>steamID64</dt>
+        <dd class="mono">@(Options.Value.SteamId == 0 ? "not set" : Options.Value.SteamId.ToString())</dd>
+
+        <dt>API key</dt>
+        <dd>
+            @if (Options.Value.HasOwnedGamesAccess)
+            {
+                <span style="color:var(--ok)">set — owned games will sync</span>
+            }
+            else
+            {
+                <span style="color:var(--ink-3)">not set — wishlist only</span>
+            }
+        </dd>
+
+        <dt>Sync every</dt>
+        <dd class="mono">@Options.Value.SyncIntervalHours h</dd>
+
+        <dt>Store region</dt>
+        <dd class="mono">@Options.Value.CountryCode · @Options.Value.Language</dd>
+    </dl>
+</div>
+
+<div class="card">
+    <h2>Calendar feed</h2>
+    <p class="hint">
+        Subscribe to this URL in Google Calendar, Outlook or iOS and releases keep arriving.
+        Day-accurate releases are confirmed events; quarter- and year-only games appear at the
+        start of their period marked tentative. Undated games aren't in the feed — they join it
+        the moment Steam dates them.
+    </p>
+    <div class="field" style="max-width:none">
+        <label for="feed">feed url</label>
+        <input id="feed" readonly value="@_feedUrl" @onfocus="SelectAll" />
+    </div>
+    <a class="syncbtn" href="@_feedPath" target="_blank" rel="noopener">open feed</a>
+</div>
+
+<div class="card">
+    <h2>Last sync</h2>
+    @if (_run is null)
+    {
+        <p class="hint">Never run. The background worker starts a few seconds after the app does.</p>
+    }
+    else
+    {
+        @if (_run.Error is not null)
+        {
+            <div class="banner bad">
+                <strong>Last sync failed.</strong>
+                <span class="mono">@_run.Error</span>
+            </div>
+        }
+        <dl class="kv">
+            <dt>Started</dt>
+            <dd class="mono">@_run.StartedUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</dd>
+
+            <dt>Duration</dt>
+            <dd class="mono">@Duration(_run)</dd>
+
+            <dt>Wishlist</dt>
+            <dd class="mono">@_run.WishlistItems items</dd>
+
+            <dt>Owned</dt>
+            <dd class="mono">@_run.OwnedItems items</dd>
+
+            <dt>Apps refreshed</dt>
+            <dd class="mono">@_run.AppsRefreshed</dd>
+
+            <dt>Date changes</dt>
+            <dd class="mono">@_run.DateChanges</dd>
+
+            <dt>Steam requests</dt>
+            <dd class="mono">@_run.StoreRequests</dd>
+        </dl>
+    }
+
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="syncbtn" @onclick="() => RunSync(false)" disabled="@Sync.IsSyncing">
+            @(Sync.IsSyncing ? "syncing…" : "sync now")
+        </button>
+        <button class="syncbtn" @onclick="() => RunSync(true)" disabled="@Sync.IsSyncing">
+            force full refresh
+        </button>
+    </div>
+    @if (Sync.IsSyncing)
+    {
+        <p class="hint" style="margin:10px 0 0">Running — this page updates when it finishes.</p>
+    }
+</div>
+
+<div class="card">
+    <h2>Getting owned games to sync</h2>
+    <p class="hint" style="margin:0">
+        1. Create a Web API key at
+        <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener">steamcommunity.com/dev/apikey</a>
+        — any domain value works, and the account needs $5+ of lifetime spend.<br />
+        2. Set your profile's <em>Game details</em> privacy to <strong>Public</strong>
+        (it's a separate setting from the profile itself, and from the wishlist).<br />
+        3. Store the key with user-secrets, restart, then press <em>force full refresh</em>.
+    </p>
+</div>
+
+@code {
+    private SyncRun? _run;
+    private string _feedUrl = "";
+    private string _feedPath = "";
+
+    protected override async Task LoadAsync()
+    {
+        _run = await Queries.LastSyncAsync();
+
+        var id = Options.Value.SteamId;
+        _feedPath = id == 0 ? "feed.ics" : $"feed/{id}.ics";
+        _feedUrl = new Uri(new Uri(Nav.BaseUri), _feedPath).ToString();
+    }
+
+    private async Task RunSync(bool force)
+    {
+        await SyncNowAsync(force);
+    }
+
+    private static string Duration(SyncRun run) =>
+        run.FinishedUtc is { } done ? $"{(int)(done - run.StartedUtc).TotalMilliseconds} ms" : "still running";
+
+    private static void SelectAll(FocusEventArgs _) { }
+}

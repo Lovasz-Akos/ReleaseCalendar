@@ -1,0 +1,69 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using ReleaseCalendar.Web;
+using ReleaseCalendar.Web.Components;
+using ReleaseCalendar.Web.Data;
+using ReleaseCalendar.Web.Services;
+using ReleaseCalendar.Web.Steam;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<CalendarOptions>(builder.Configuration.GetSection(CalendarOptions.SectionName));
+builder.Services.AddSingleton(TimeProvider.System);
+
+var dbPath = Path.Combine(builder.Environment.ContentRootPath, "calendar.db");
+builder.Services.AddDbContextFactory<CalendarDb>(o => o.UseSqlite($"Data Source={dbPath}"));
+
+// The only component that talks to Valve. Nothing here is reachable from a browser:
+// none of these endpoints send CORS headers.
+builder.Services.AddHttpClient<SteamClient>(c =>
+{
+    c.BaseAddress = new Uri("https://api.steampowered.com/");
+    c.Timeout = TimeSpan.FromSeconds(30);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("ReleaseCalendar/1.0 (+personal use)");
+});
+
+builder.Services.AddSingleton<SyncService>();
+builder.Services.AddScoped<CalendarQueries>();
+builder.Services.AddScoped<IcsFeed>();
+builder.Services.AddHostedService<SyncWorker>();
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+var app = builder.Build();
+
+// SQLite file + schema. Safe to run on every start.
+using (var scope = app.Services.CreateScope())
+{
+    var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CalendarDb>>();
+    await using var db = await factory.CreateDbContextAsync();
+    await db.Database.MigrateAsync();
+}
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseAntiforgery();
+app.MapStaticAssets();
+
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+// Subscribe to this in Google Calendar, Outlook or iOS and releases keep arriving.
+app.MapGet("/feed/{steamId:long}.ics", async (
+    long steamId, IcsFeed feed, IOptions<CalendarOptions> opts, CancellationToken ct) =>
+{
+    if (steamId != opts.Value.SteamId) return Results.NotFound();
+    return Results.Text(await feed.BuildAsync(ct), "text/calendar; charset=utf-8");
+});
+
+app.MapGet("/feed.ics", async (IcsFeed feed, CancellationToken ct) =>
+    Results.Text(await feed.BuildAsync(ct), "text/calendar; charset=utf-8"));
+
+app.Run();

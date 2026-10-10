@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ReleaseCalendar.Web/ReleaseCalendar.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ReleaseCalendar.Tests/ReleaseCalendar.Tests.csproj" />
+  </Folder>
+</Solution>

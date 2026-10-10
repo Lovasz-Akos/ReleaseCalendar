@@ -1,0 +1,73 @@
+@page "/delays"
+@inherits DataComponent
+@inject CalendarQueries Queries
+
+<PageTitle>Delays — ReleaseCal</PageTitle>
+
+<div class="pagehead">
+    <div>
+        <h1>Delays</h1>
+        <div class="sub">every time a date moved since this app started watching — Steam never shows you this</div>
+    </div>
+</div>
+
+@if (_rows is null)
+{
+    <div class="empty"><div class="eb">Loading…</div></div>
+}
+else if (_rows.Count == 0)
+{
+    <div class="empty">
+        <div class="et">No date changes recorded yet</div>
+        <p class="eb">
+            This fills in over time. A change is only recorded when a date differs from what
+            was already cached, so the first sync of a game is never counted as a delay.
+        </p>
+    </div>
+}
+else
+{
+    <div class="tablewrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Game</th>
+                    <th>Was</th>
+                    <th>Now</th>
+                    <th>Moved</th>
+                    <th>Noticed</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td>
+                            <a href="https://store.steampowered.com/app/@row.AppId/" target="_blank" rel="noopener">@row.Name</a>
+                        </td>
+                        <td class="mono">@row.OldText</td>
+                        <td class="mono">@row.NewText</td>
+                        <td class="mono @(row.IsDelay ? "delay" : row.IsPullIn ? "pullin" : null)">
+                            @MovedText(row)
+                        </td>
+                        <td class="mono">@row.SeenUtc.ToString("d MMM yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<DelayRow>? _rows;
+
+    protected override async Task LoadAsync() => _rows = await Queries.DelaysAsync();
+
+    private static string MovedText(DelayRow row) => row.DaysMoved switch
+    {
+        null => "—",
+        0 => "same day",
+        > 0 => $"+{row.DaysMoved}d later",
+        _ => $"{-row.DaysMoved!.Value}d earlier",
+    };
+}

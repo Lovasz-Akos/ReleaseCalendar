@@ -1,0 +1,164 @@
+@page "/month"
+@page "/month/{Year:int}/{MonthNumber:int}"
+@inherits DataComponent
+@inject CalendarQueries Queries
+@inject NavigationManager Nav
+
+<PageTitle>@_title — ReleaseCal</PageTitle>
+
+<div class="pagehead">
+    <div>
+        <h1>Month</h1>
+        <div class="sub">only day-accurate releases go on the grid — approximate ones are listed below it</div>
+    </div>
+</div>
+
+<div class="monthbar">
+    <a class="mb" href="@Link(-1)">← prev</a>
+    <span class="mt">@_title</span>
+    <a class="mb" href="@Link(1)">next →</a>
+    @if (!_isCurrentMonth)
+    {
+        <a class="mb" href="month">today</a>
+    }
+    <span class="sub" style="margin-left:auto">@(_view?.TotalEvents ?? 0) dated event(s)</span>
+</div>
+
+@if (_view is null)
+{
+    <div class="empty"><div class="eb">Loading…</div></div>
+}
+else
+{
+    <div class="cal">
+        <div class="dow">MON</div>
+        <div class="dow">TUE</div>
+        <div class="dow">WED</div>
+        <div class="dow">THU</div>
+        <div class="dow">FRI</div>
+        <div class="dow">SAT</div>
+        <div class="dow">SUN</div>
+
+        @foreach (var day in _days)
+        {
+            var inMonth = day.Month == _view.Month && day.Year == _view.Year;
+            var isToday = day == _today;
+
+            <div class="cell @(inMonth ? null : "out") @(isToday ? "today" : null)">
+                <span class="dn">@day.Day</span>
+
+                @if (_view.ByDay.TryGetValue(day, out var events))
+                {
+                    @foreach (var e in events)
+                    {
+                        <a class="ev @CellClass(e)"
+                           href="@e.StoreUrl" target="_blank" rel="noopener"
+                           title="@e.Name — @e.When">
+                            @Label(e)
+                        </a>
+                    }
+                }
+            </div>
+        }
+    </div>
+
+    <div class="calfoot">
+        <span><i style="background:var(--p-exact)"></i>upcoming release</span>
+        <span><i style="background:var(--teal)"></i>leaves early access</span>
+        <span><i style="background:var(--ink-3)"></i>out now, still wishlisted</span>
+    </div>
+
+    @if (_view.Approximate.Count > 0)
+    {
+        <div class="fuzzybar">
+            <div class="fh">Somewhere in this period — no day assigned</div>
+            <div class="tbagrid">
+                @foreach (var e in _view.Approximate)
+                {
+                    <a class="tbachip" href="@e.StoreUrl" target="_blank" rel="noopener">
+                        @e.Name <span class="q">· @e.When</span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_view.Undated.Count > 0)
+    {
+        <div class="fuzzybar">
+            <div class="fh">No date at all — @_view.Undated.Count game(s) that could land in any month</div>
+            <div class="tbagrid">
+                @foreach (var e in _view.Undated.Take(10))
+                {
+                    <a class="tbachip" href="@e.StoreUrl" target="_blank" rel="noopener">@e.Name</a>
+                }
+                @if (_view.Undated.Count > 10)
+                {
+                    <a class="tbachip" href="">+ @(_view.Undated.Count - 10) more on Up Next</a>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int? Year { get; set; }
+    [Parameter] public int? MonthNumber { get; set; }
+
+    private MonthView? _view;
+    private DateOnly _today;
+    private List<DateOnly> _days = [];
+    private string _title = "";
+    private bool _isCurrentMonth;
+
+    private int ShownYear => Year ?? _today.Year;
+    private int ShownMonth => MonthNumber ?? _today.Month;
+
+    private (int Year, int Month)? _loaded;
+
+    protected override async Task LoadAsync()
+    {
+        _today = Queries.Today;
+
+        var year = Math.Clamp(ShownYear, 1990, 2100);
+        var month = Math.Clamp(ShownMonth, 1, 12);
+
+        _view = await Queries.MonthAsync(year, month);
+        _title = new DateOnly(year, month, 1).ToString("MMMM yyyy");
+        _isCurrentMonth = year == _today.Year && month == _today.Month;
+        _days = BuildGrid(year, month);
+        _loaded = (year, month);
+    }
+
+    // Reload when the route moves to a different month, but not on the first render
+    // (OnInitializedAsync already loaded) and not on every unrelated parameter set.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded != (ShownYear, ShownMonth)) await LoadAsync();
+    }
+
+    /// <summary>Monday-first grid, padded to whole weeks.</summary>
+    private static List<DateOnly> BuildGrid(int year, int month)
+    {
+        var first = new DateOnly(year, month, 1);
+        var offset = ((int)first.DayOfWeek + 6) % 7;      // Monday = 0
+        var start = first.AddDays(-offset);
+        var cells = (int)Math.Ceiling((offset + DateTime.DaysInMonth(year, month)) / 7.0) * 7;
+
+        return Enumerable.Range(0, cells).Select(start.AddDays).ToList();
+    }
+
+    private string Link(int delta)
+    {
+        var target = new DateOnly(Math.Clamp(ShownYear, 1990, 2100), Math.Clamp(ShownMonth, 1, 12), 1).AddMonths(delta);
+        return $"month/{target.Year}/{target.Month}";
+    }
+
+    private string CellClass(CalendarEvent e) =>
+        e.Kind == EventKind.EarlyAccessExit ? "eax"
+        : e.Date is { } d && d < _today ? "past"
+        : "";
+
+    private string Label(CalendarEvent e) =>
+        e.Kind == EventKind.EarlyAccessExit ? $"{e.Name} 1.0" : e.Name;
+}

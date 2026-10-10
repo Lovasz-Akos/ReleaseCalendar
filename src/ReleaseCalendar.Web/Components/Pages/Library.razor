@@ -1,0 +1,99 @@
+@page "/library"
+@inherits DataComponent
+@inject CalendarQueries Queries
+@inject IOptions<CalendarOptions> Options
+
+<PageTitle>Library — ReleaseCal</PageTitle>
+
+<div class="pagehead">
+    <div>
+        <h1>Library</h1>
+        <div class="sub">the retrospective half — when your collection was made, and what's still cooking</div>
+    </div>
+</div>
+
+@if (_view is null)
+{
+    <div class="empty"><div class="eb">Loading…</div></div>
+}
+else
+{
+    @if (!Options.Value.HasOwnedGamesAccess)
+    {
+        <div class="banner">
+            <strong>Owned games aren't syncing.</strong>
+            This half needs a Steam Web API key and your profile's <em>Game details</em> set to Public.
+            Wishlist numbers below are live; owned counts stay at zero until then — see Settings.
+        </div>
+    }
+
+    <div class="statrow">
+        <div class="st"><div class="sv">@_view.OwnedCount</div><div class="sl">owned</div></div>
+        <div class="st"><div class="sv">@_view.WishlistCount</div><div class="sl">wishlisted</div></div>
+        <div class="st"><div class="sv">@_view.OutNowStillWishlisted</div><div class="sl">out, not bought</div></div>
+        <div class="st"><div class="sv">@_view.EarlyAccessCount</div><div class="sl">in early access</div></div>
+        <div class="st"><div class="sv">@_view.UnreleasedOwnedCount</div><div class="sl">owned, unreleased</div></div>
+        <div class="st" title="Delisted, beta or region-locked — Steam returns no release date for these">
+            <div class="sv">@_view.NoDateOnRecordCount</div><div class="sl">owned, no date</div>
+        </div>
+    </div>
+
+    @if (_view.OwnedCount > 0)
+    {
+        <div class="sub" style="margin:-10px 0 20px">
+            @_dated dated + @_view.UnreleasedOwnedCount unreleased + @_view.NoDateOnRecordCount undated
+            = @_view.OwnedCount owned
+        </div>
+    }
+
+    @if (_view.ByYear.Count > 0)
+    {
+        <h2>Owned games by release year</h2>
+        <div class="hist">
+            @foreach (var (year, count) in _view.ByYear)
+            {
+                <div class="b" title="@count game(s) from @year">
+                    <span class="bv">@count</span>
+                    <span class="bar" style="height:@(Pct(count))%"></span>
+                    <span class="bl">'@(year % 100)</span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (_view.EarlyAccessExits.Count > 0)
+    {
+        <h2 style="margin-top:26px">Leaving Early Access</h2>
+        <div class="sub" style="margin-bottom:8px">
+            The one part of a library that genuinely belongs on a future calendar.
+        </div>
+        @foreach (var e in _view.EarlyAccessExits)
+        {
+            <ReleaseRow Event="e" Today="_today" />
+        }
+    }
+    else if (_view.OwnedCount > 0 || _view.WishlistCount > 0)
+    {
+        <h2 style="margin-top:26px">Leaving Early Access</h2>
+        <div class="empty" style="padding:22px">
+            <p class="eb">Nothing you track has a dated 1.0 launch right now.</p>
+        </div>
+    }
+}
+
+@code {
+    private LibraryView? _view;
+    private DateOnly _today;
+    private int _max = 1;
+    private int _dated;
+
+    protected override async Task LoadAsync()
+    {
+        _today = Queries.Today;
+        _view = await Queries.LibraryAsync();
+        _max = _view.ByYear.Count > 0 ? _view.ByYear.Max(x => x.Count) : 1;
+        _dated = _view.ByYear.Sum(x => x.Count);
+    }
+
+    private int Pct(int count) => Math.Max(2, (int)Math.Round(count * 100.0 / _max));
+}

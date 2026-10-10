@@ -1,0 +1,83 @@
+@page "/"
+@inherits DataComponent
+@inject CalendarQueries Queries
+
+<PageTitle>Up Next — ReleaseCal</PageTitle>
+
+<div class="pagehead">
+    <div>
+        <h1>Up Next</h1>
+        <div class="sub">everything ahead, grouped by how precisely Steam has dated it</div>
+    </div>
+</div>
+
+@if (_groups is null)
+{
+    <div class="empty"><div class="eb">Loading…</div></div>
+}
+else if (_groups.Count == 0)
+{
+    <div class="empty">
+        <div class="et">Nothing cached yet</div>
+        <p class="eb">
+            The first sync runs a few seconds after startup. If nothing appears, check that
+            your steamID is set and that your Steam wishlist is public — see Settings.
+        </p>
+    </div>
+}
+else
+{
+    <div class="agenda">
+        @foreach (var group in _groups)
+        {
+            <div>
+                <div class="tierhead">
+                    @group.Title
+                    <span class="ct">· @group.Note</span>
+                </div>
+
+                @if (group.Tier == DatePrecision.Tba)
+                {
+                    @* 49 undated games would be 49 near-empty rows; chips read better. *@
+                    <div class="tbagrid">
+                        @foreach (var e in group.Events.Take(_undatedShown))
+                        {
+                            <a class="tbachip" href="@e.StoreUrl" target="_blank" rel="noopener">
+                                @e.Name
+                                @if (e.Precision == DatePrecision.ComingSoon)
+                                {
+                                    <span class="q">· soon</span>
+                                }
+                            </a>
+                        }
+                        @if (group.Events.Count > _undatedShown)
+                        {
+                            <button class="tbachip" @onclick="() => _undatedShown = int.MaxValue">
+                                + @(group.Events.Count - _undatedShown) more
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    @foreach (var e in group.Events)
+                    {
+                        <ReleaseRow Event="e" Today="_today" />
+                    }
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<UpNextGroup>? _groups;
+    private DateOnly _today;
+    private int _undatedShown = 24;
+
+    protected override async Task LoadAsync()
+    {
+        _today = Queries.Today;
+        _groups = await Queries.UpNextAsync();
+    }
+}
