@@ -1,0 +1,15 @@
+# Let git handle line endings normally for source...
+* text=auto
+
+# ...but these are consumed by Linux and MUST stay LF. A CRLF shell script fails
+# with "bad interpreter", and a CRLF systemd unit fails to parse — both of which
+# happen silently when deploying from a Windows checkout.
+*.sh            text eol=lf
+*.service       text eol=lf
+Dockerfile      text eol=lf
+.dockerignore   text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+
+# Keep diffs readable for the captured API fixtures rather than treating them as blobs.
+tests/fixtures/*.json text eol=lf
