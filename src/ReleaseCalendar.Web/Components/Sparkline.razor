@@ -1,0 +1,92 @@
+@* Price history as a step chart: a price holds until it changes, so straight
+   interpolation between points would invent prices that were never charged.
+
+   Drawn only with two or more points. A single point is not a history, and a
+   one-dot "chart" would imply knowledge the app doesn't have yet. *@
+
+@if (_path is not null)
+{
+    <svg class="spark" viewBox="0 0 @Width @Height" role="img" aria-label="@_label">
+        <path d="@_path" fill="none" stroke="var(--teal)" stroke-width="2"
+              stroke-linejoin="round" stroke-linecap="round" />
+        <circle cx="@_endX.ToString("0.##", Inv)" cy="@_endY.ToString("0.##", Inv)" r="2.5"
+                fill="var(--amber)" />
+    </svg>
+}
+else
+{
+    <span class="sub" title="Price history builds up from the first sync — Steam publishes none">
+        @(Points.Count == 1 ? "no change yet" : "no history")
+    </span>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Inv =
+        System.Globalization.CultureInfo.InvariantCulture;
+
+    [Parameter, EditorRequired] public IReadOnlyList<(DateTime SeenUtc, int FinalCents)> Points { get; set; } = [];
+
+    /// <summary>Used only for the accessible label — the series itself is the price.</summary>
+    [Parameter] public string? FormattedExample { get; set; }
+
+    [Parameter] public int Width { get; set; } = 120;
+    [Parameter] public int Height { get; set; } = 26;
+
+    private string? _path;
+    private string? _label;
+    private double _endX;
+    private double _endY;
+
+    protected override void OnParametersSet()
+    {
+        _path = null;
+
+        if (Points.Count < 2) return;
+
+        const double pad = 3;
+        var cents = Points.Select(p => p.FinalCents).ToList();
+        var min = cents.Min();
+        var max = cents.Max();
+
+        var t0 = Points[0].SeenUtc.Ticks;
+        var span = (double)(Points[^1].SeenUtc.Ticks - t0);
+        if (span <= 0) span = 1;
+
+        double X(DateTime at) => pad + (at.Ticks - t0) / span * (Width - 2 * pad);
+
+        // A flat series sits on the midline rather than collapsing onto an edge.
+        double Y(int value) => max == min
+            ? Height / 2.0
+            : Height - pad - (value - min) / (double)(max - min) * (Height - 2 * pad);
+
+        var sb = new System.Text.StringBuilder();
+        var x = X(Points[0].SeenUtc);
+        var y = Y(Points[0].FinalCents);
+        sb.Append(Inv, $"M {x:0.##} {y:0.##}");
+
+        for (var i = 1; i < Points.Count; i++)
+        {
+            var nx = X(Points[i].SeenUtc);
+            var ny = Y(Points[i].FinalCents);
+
+            // Horizontal hold, then the step.
+            sb.Append(Inv, $" L {nx:0.##} {y:0.##} L {nx:0.##} {ny:0.##}");
+            x = nx;
+            y = ny;
+        }
+
+        // The current price holds to the right edge.
+        sb.Append(Inv, $" L {Width - pad:0.##} {y:0.##}");
+
+        _path = sb.ToString();
+        _endX = Width - pad;
+        _endY = y;
+
+        var lowest = Steam.PriceMapper.Format(min, FormattedExample, Points[^1].FinalCents);
+        var highest = Steam.PriceMapper.Format(max, FormattedExample, Points[^1].FinalCents);
+        var current = Steam.PriceMapper.Format(Points[^1].FinalCents, FormattedExample, Points[^1].FinalCents);
+
+        _label = $"Price history: {Points.Count} changes since "
+               + $"{Points[0].SeenUtc:d MMM yyyy}, between {lowest} and {highest}, now {current}.";
+    }
+}

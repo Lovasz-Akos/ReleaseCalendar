@@ -1,0 +1,139 @@
+@page "/sales"
+@inherits DataComponent
+@inject CalendarQueries Queries
+@inject IOptions<CalendarOptions> Options
+
+<PageTitle>Sales — ReleaseCal</PageTitle>
+
+<div class="pagehead">
+    <div>
+        <h1>On sale</h1>
+        <div class="sub">wishlist items discounted right now — new ones first</div>
+    </div>
+</div>
+
+@if (_view is null)
+{
+    <div class="empty"><div class="eb">Loading…</div></div>
+}
+else
+{
+    <div class="statrow">
+        <div class="st"><div class="sv">@_view.Count</div><div class="sl">on sale now</div></div>
+        <div class="st"><div class="sv">@_view.New.Count</div><div class="sl">new this sync</div></div>
+        <div class="st"><div class="sv">@_view.TotalSaving</div><div class="sl">total off</div></div>
+        <div class="st"><div class="sv">@_best%</div><div class="sl">best discount</div></div>
+        <div class="st" title="Apps with a price on record — free and unreleased ones have none">
+            <div class="sv">@_view.TrackedWithPrices</div><div class="sl">priced apps</div>
+        </div>
+    </div>
+
+    @if (_view.TrackingSince is { } since)
+    {
+        <div class="banner">
+            <strong>Price history since @since.ToString("d MMM yyyy").</strong>
+            Steam publishes no historical prices, so the graphs build up from here — a game's
+            line appears once its price has changed at least once while the app was watching.
+            “Lowest seen” means lowest since that date, not lowest ever.
+        </div>
+    }
+    else
+    {
+        <div class="banner">
+            <strong>No price history yet.</strong>
+            Prices are recorded on every sync from now on. Steam publishes no historical
+            prices, so there is nothing to backfill — the graphs fill in over the coming weeks.
+        </div>
+    }
+
+    @if (_view.Count == 0)
+    {
+        <div class="empty">
+            <div class="et">Nothing on your wishlist is discounted</div>
+            <p class="eb">
+                Checked against @_view.TrackedWithPrices priced apps as of the last sync.
+                New discounts appear here, flagged, after the sync that first sees them.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="agenda">
+            @if (_view.New.Count > 0)
+            {
+                <div>
+                    <div class="tierhead">
+                        New since the last sync
+                        <span class="ct">· wasn't discounted last time</span>
+                    </div>
+                    @foreach (var row in _view.New)
+                    {
+                        @RenderRow(row, isNew: true)
+                    }
+                </div>
+            }
+
+            @if (_view.Ongoing.Count > 0)
+            {
+                <div>
+                    <div class="tierhead">
+                        Already on sale
+                        <span class="ct">· @_view.Ongoing.Count still discounted</span>
+                    </div>
+                    @foreach (var row in _view.Ongoing)
+                    {
+                        @RenderRow(row, isNew: false)
+                    }
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private SalesView? _view;
+    private int _best;
+
+    protected override async Task LoadAsync()
+    {
+        _view = await Queries.SalesAsync();
+        _best = _view.Count == 0 ? 0 : _view.New.Concat(_view.Ongoing).Max(r => r.DiscountPct);
+    }
+
+    private RenderFragment RenderRow(SaleRow row, bool isNew) =>@<div class="sale">
+        <span class="pct" title="@row.DiscountPct% off">−@row.DiscountPct%</span>
+
+        <span>
+            <span class="title">
+                <a href="@row.StoreUrl" target="_blank" rel="noopener">@row.Name</a>
+                @if (isNew)
+                {
+                    <span class="badge out">new</span>
+                }
+                @if (row.AtLowestSeen && row.Points.Count > 1)
+                {
+                    <span class="badge owned">lowest seen</span>
+                }
+                @if (row.Owned)
+                {
+                    <span class="badge">owned</span>
+                }
+            </span>
+            <span class="sub">
+                appid @row.AppId · saves @row.Saving
+                @if (row.DaysLeft is { } days)
+                {
+                    <text> · </text>@(days == 0 ? "ends today" : days == 1 ? "1 day left" : $"{days} days left")
+                }
+            </span>
+        </span>
+
+        <span class="prices">
+            <b>@row.Price</b>
+            <s>@row.Original</s>
+        </span>
+
+        @* The @ matters: a string-typed parameter without it receives the literal text. *@
+        <Sparkline Points="row.Points" FormattedExample="@row.FormattedPrice" />
+    </div>;
+}

@@ -62,6 +62,34 @@ public class SteamApp
 
     public DateTime FetchedUtc { get; set; }
 
+    // ---- price, as of the last sync ----------------------------------------
+
+    /// <summary>Current price in minor units. Null for free games and unreleased apps.</summary>
+    public int? PriceCents { get; set; }
+
+    /// <summary>Pre-discount price. Equal to <see cref="PriceCents"/> when not on sale.</summary>
+    public int? OriginalPriceCents { get; set; }
+
+    /// <summary>0 when not discounted.</summary>
+    public int DiscountPct { get; set; }
+
+    /// <summary>
+    /// Steam's own rendering, e.g. "$19.99" or "4 299 Ft". Stored verbatim and shown
+    /// as-is: re-deriving it from cents would get the separator, grouping and symbol
+    /// placement wrong outside en-US.
+    /// </summary>
+    public string? FormattedPrice { get; set; }
+
+    public string? FormattedOriginalPrice { get; set; }
+
+    public DateTime? DiscountEndsUtc { get; set; }
+
+    /// <summary>
+    /// When the current discount was first seen. Cleared when the sale ends, so
+    /// "new since the last sync" is just a comparison against that run's start.
+    /// </summary>
+    public DateTime? SaleSeenUtc { get; set; }
+
     /// <summary>
     /// False while the store has never returned this app — delisted and region-locked
     /// items in a library are never resolvable, and must not be presented as upcoming
@@ -106,6 +134,26 @@ public class DateChange
     public int? DaysMoved => OldDate is { } o && NewDate is { } n ? n.DayNumber - o.DayNumber : null;
 }
 
+/// <summary>
+/// A price as it stood at one moment. Written only when the price actually changes, so
+/// the series is sparse and exact — read it as a step chart, not a sampled one.
+///
+/// Steam publishes no price history, so this can only ever accumulate forward from the
+/// first sync; there is nothing to backfill from.
+/// </summary>
+public class PricePoint
+{
+    public int Id { get; set; }
+    public int AppId { get; set; }
+    public DateTime SeenUtc { get; set; }
+
+    public int FinalCents { get; set; }
+    public int OriginalCents { get; set; }
+    public int DiscountPct { get; set; }
+
+    public SteamApp? App { get; set; }
+}
+
 public class SyncRun
 {
     public int Id { get; set; }
@@ -116,6 +164,8 @@ public class SyncRun
     public int OwnedItems { get; set; }
     public int AppsRefreshed { get; set; }
     public int DateChanges { get; set; }
+    public int PriceChanges { get; set; }
+    public int NewSales { get; set; }
     public int StoreRequests { get; set; }
 
     public string? Error { get; set; }

@@ -7,6 +7,7 @@ public class CalendarDb(DbContextOptions<CalendarDb> options) : DbContext(option
     public DbSet<SteamApp> Apps => Set<SteamApp>();
     public DbSet<Entry> Entries => Set<Entry>();
     public DbSet<DateChange> DateChanges => Set<DateChange>();
+    public DbSet<PricePoint> PricePoints => Set<PricePoint>();
     public DbSet<SyncRun> SyncRuns => Set<SyncRun>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -31,6 +32,14 @@ public class CalendarDb(DbContextOptions<CalendarDb> options) : DbContext(option
             e.HasOne(x => x.App).WithMany().HasForeignKey(x => x.AppId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.SeenUtc);
             e.Ignore(x => x.DaysMoved);
+        });
+
+        b.Entity<PricePoint>(e =>
+        {
+            e.HasOne(x => x.App).WithMany().HasForeignKey(x => x.AppId).OnDelete(DeleteBehavior.Cascade);
+
+            // Every read is "this app's points, oldest first".
+            e.HasIndex(x => new { x.AppId, x.SeenUtc });
         });
 
         b.Entity<SyncRun>(e =>

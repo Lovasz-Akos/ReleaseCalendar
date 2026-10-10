@@ -3,6 +3,7 @@
 # Put these in this stack's .env file (Dockge has an editor for it):
 #   STEAM_ACCOUNT=your-vanity-name      # or a steamID64, or a profile URL
 #   STEAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#   STEAM_COUNTRY=HU                     # store region; drives the price currency
 #   TZ=Europe/Budapest
 #
 # The image is built and published by .github/workflows/build.yml on every push
@@ -36,7 +37,9 @@ services:
       Calendar__ApiKey: "${STEAM_API_KEY:?set STEAM_API_KEY in the stack .env}"
 
       Calendar__SyncIntervalHours: "6"
-      Calendar__CountryCode: "US"
+      # Drives the currency prices come back in. "US" gives USD; most of the EU
+      # is billed in EUR. Wrong region = right numbers, wrong money.
+      Calendar__CountryCode: "${STEAM_COUNTRY:-US}"
       Calendar__Language: "english"
       Calendar__RecentlyReleasedDays: "180"
 

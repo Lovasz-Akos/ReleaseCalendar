@@ -51,6 +51,9 @@ public sealed class StoreItem
     [JsonPropertyName("assets")] public StoreAssets? Assets { get; set; }
     [JsonPropertyName("release")] public StoreRelease? Release { get; set; }
 
+    /// <summary>Absent for free games and for anything not yet purchasable.</summary>
+    [JsonPropertyName("best_purchase_option")] public BestPurchaseOption? BestPurchaseOption { get; set; }
+
     /// <summary>Some items carry the id in "id" rather than "appid".</summary>
     public int ResolvedAppId => AppId != 0 ? AppId : Id;
 }
@@ -67,6 +70,29 @@ public sealed class StoreRelease
 
     [JsonPropertyName("custom_release_date_message")] public string? CustomReleaseDateMessage { get; set; }
     [JsonPropertyName("release_from_early_access_date")] public long? ReleaseFromEarlyAccessDate { get; set; }
+}
+
+/// <summary>
+/// Prices arrive as strings rather than numbers — "1999", not 1999 — so these stay
+/// strings and are parsed by <see cref="PriceMapper"/>.
+/// </summary>
+public sealed class BestPurchaseOption
+{
+    [JsonPropertyName("packageid")] public int PackageId { get; set; }
+    [JsonPropertyName("purchase_option_name")] public string? PurchaseOptionName { get; set; }
+    [JsonPropertyName("final_price_in_cents")] public string? FinalPriceInCents { get; set; }
+    [JsonPropertyName("original_price_in_cents")] public string? OriginalPriceInCents { get; set; }
+    [JsonPropertyName("formatted_final_price")] public string? FormattedFinalPrice { get; set; }
+    [JsonPropertyName("formatted_original_price")] public string? FormattedOriginalPrice { get; set; }
+    [JsonPropertyName("discount_pct")] public int DiscountPct { get; set; }
+    [JsonPropertyName("active_discounts")] public List<ActiveDiscount>? ActiveDiscounts { get; set; }
+}
+
+public sealed class ActiveDiscount
+{
+    [JsonPropertyName("discount_amount")] public string? DiscountAmount { get; set; }
+    [JsonPropertyName("discount_description")] public string? DiscountDescription { get; set; }
+    [JsonPropertyName("discount_end_date")] public long? DiscountEndDate { get; set; }
 }
 
 public sealed class StoreAssets

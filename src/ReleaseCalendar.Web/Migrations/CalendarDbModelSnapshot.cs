@@ -77,6 +77,34 @@ namespace ReleaseCalendar.Web.Migrations
                     b.ToTable("Entries");
                 });
 
+            modelBuilder.Entity("ReleaseCalendar.Web.Data.PricePoint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AppId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DiscountPct")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FinalCents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("OriginalCents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SeenUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppId", "SeenUtc");
+
+                    b.ToTable("PricePoints");
+                });
+
             modelBuilder.Entity("ReleaseCalendar.Web.Data.SteamApp", b =>
                 {
                     b.Property<int>("AppId")
@@ -88,10 +116,22 @@ namespace ReleaseCalendar.Web.Migrations
                     b.Property<string>("CustomMessage")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("DiscountEndsUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DiscountPct")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateOnly?>("EarlyAccessExitDate")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("FetchedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FormattedOriginalPrice")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FormattedPrice")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsComingSoon")
@@ -108,7 +148,13 @@ namespace ReleaseCalendar.Web.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("OriginalPriceCents")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Precision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PriceCents")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateOnly?>("ReleaseDate")
@@ -116,6 +162,9 @@ namespace ReleaseCalendar.Web.Migrations
 
                     b.Property<bool>("Resolved")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("SaleSeenUtc")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("StoreUrlPath")
                         .HasColumnType("TEXT");
@@ -147,7 +196,13 @@ namespace ReleaseCalendar.Web.Migrations
                     b.Property<DateTime?>("FinishedUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("NewSales")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("OwnedItems")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PriceChanges")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("StartedUtc")
@@ -178,6 +233,17 @@ namespace ReleaseCalendar.Web.Migrations
                 });
 
             modelBuilder.Entity("ReleaseCalendar.Web.Data.Entry", b =>
+                {
+                    b.HasOne("ReleaseCalendar.Web.Data.SteamApp", "App")
+                        .WithMany()
+                        .HasForeignKey("AppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("App");
+                });
+
+            modelBuilder.Entity("ReleaseCalendar.Web.Data.PricePoint", b =>
                 {
                     b.HasOne("ReleaseCalendar.Web.Data.SteamApp", "App")
                         .WithMany()

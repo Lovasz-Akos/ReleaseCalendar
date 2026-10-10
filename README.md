@@ -24,7 +24,7 @@ about two seconds.
 | `SteamId` | An explicit steamID64 that skips the vanity lookup. Optional; `Account` is usually easier. |
 | `ApiKey` | Only needed for owned games — **set it with user-secrets, not here** |
 | `SyncIntervalHours` | Background sync cadence (default 6) |
-| `CountryCode` / `Language` | Store region for names and dates (default `US` / `english`) |
+| `CountryCode` / `Language` | Store region for names, dates **and prices** (default `US` / `english`). Set it to your own region or the Sales page quotes the wrong currency. |
 | `RecentlyReleasedDays` | How long a release stays in "out now, still wishlisted" (default 180) |
 
 The wishlist half needs **no API key** — just a public wishlist.
@@ -100,6 +100,31 @@ counted and listed separately, never in a forward-looking tier.
 
 `release_from_early_access_date` is a second, separate event: a game leaving Early Access.
 No "release date" field surfaces it.
+
+## Sales and price history
+
+`GetItems` returns prices in the same response as release dates, so the Sales page costs
+**no extra requests** — it is the same two calls per sync. It lists wishlist items
+discounted right now, with the ones that weren't discounted at the previous sync flagged
+separately: that is what "new sale" means here, and it is a comparison against stored
+state rather than a guess.
+
+A discount already running at the very first sync is **not** reported as new. Otherwise a
+cold start flags every sale on the wishlist at once, which is noise rather than news — the
+same reason the first sighting of a release date isn't recorded as a delay.
+
+**Steam publishes no historical prices.** Nothing can be backfilled; SteamDB's graphs exist
+because it has polled every app for years. This app records a price point whenever a price
+actually changes, so the history is sparse, exact, and grows forward from your first sync.
+That means:
+
+- the per-row graph appears only once a game's price has changed at least once
+- "lowest seen" means lowest since tracking began, which the page says explicitly
+- the series is a **step** chart: a price holds until it changes, so interpolating between
+  points would draw prices that were never charged
+
+Prices are shown using Steam's own formatted strings rather than rebuilt from cents —
+`19,99€` and `4 299 Ft` don't survive a naive currency format.
 
 ## Layout
 

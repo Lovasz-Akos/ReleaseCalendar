@@ -67,6 +67,61 @@ public sealed record OwnedUnreleasedView(
     int PendingCount,
     int OwnedCount);
 
+/// <param name="Points">Oldest-first price history. Sparse: one point per change.</param>
+public sealed record SaleRow(
+    int AppId,
+    string Name,
+    int DiscountPct,
+    int FinalCents,
+    int OriginalCents,
+    string? FormattedPrice,
+    string? FormattedOriginalPrice,
+    DateTime? DiscountEndsUtc,
+    DateTime? SaleSeenUtc,
+    bool IsNew,
+    bool Owned,
+    int? LowestEverCents,
+    IReadOnlyList<(DateTime SeenUtc, int FinalCents)> Points)
+{
+    public string StoreUrl => $"https://store.steampowered.com/app/{AppId}/";
+
+    public int SavingCents => Math.Max(0, OriginalCents - FinalCents);
+
+    /// <summary>True when this is the cheapest it has been since tracking began.</summary>
+    public bool AtLowestSeen => LowestEverCents is { } low && FinalCents <= low;
+
+    // Steam's own strings where we have them — correct in every locale.
+    public string Price => FormattedPrice ?? Steam.PriceMapper.Format(FinalCents, null, null);
+    public string Original => FormattedOriginalPrice ?? Steam.PriceMapper.Format(OriginalCents, null, null);
+
+    /// <summary>Derived, so best-effort: Steam never formats the saving for us.</summary>
+    public string Saving => Steam.PriceMapper.Format(SavingCents, FormattedPrice, FinalCents);
+
+    public int? DaysLeft => DiscountEndsUtc is { } ends
+        ? Math.Max(0, (int)Math.Ceiling((ends - DateTime.UtcNow).TotalDays))
+        : null;
+}
+
+public sealed record SalesView(
+    IReadOnlyList<SaleRow> New,
+    IReadOnlyList<SaleRow> Ongoing,
+    int TrackedWithPrices,
+    int TotalSavingCents,
+    string? ExampleFormatted,
+    int? ExampleCents,
+    DateTime? TrackingSince,
+    DateTime? LastSyncUtc)
+{
+    public int Count => New.Count + Ongoing.Count;
+
+    /// <summary>
+    /// Derived, so it needs a currency sample — and the sample must come from the same
+    /// row as the amount it formats, or the decoration can't be matched and it degrades
+    /// to a bare number.
+    /// </summary>
+    public string TotalSaving => Steam.PriceMapper.Format(TotalSavingCents, ExampleFormatted, ExampleCents);
+}
+
 public sealed record DelayRow(
     int AppId, string Name, DateTime SeenUtc,
     DateOnly? OldDate, DatePrecision OldPrecision,
@@ -344,6 +399,81 @@ public sealed class CalendarQueries(
             NoDateOnRecordCount: rows.Count(r => r.Owned && r.App.Precision == DatePrecision.Unknown),
             ByYear: byYear,
             EarlyAccessExits: eaExits);
+    }
+
+    /// <summary>
+    /// Wishlist items discounted right now, split by whether the discount is new since the
+    /// most recent sync — which is what "wasn't on sale last time I looked" means here.
+    /// </summary>
+    public async Task<SalesView> SalesAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        var lastRun = await db.SyncRuns
+            .OrderByDescending(r => r.StartedUtc)
+            .Select(r => (DateTime?)r.StartedUtc)
+            .FirstOrDefaultAsync(ct);
+
+        var rows = await db.Entries
+            .Where(e => e.SteamId == SteamId)
+            .GroupBy(e => e.AppId)
+            .Select(g => new
+            {
+                AppId = g.Key,
+                Owned = g.Any(e => e.Source == EntrySource.Owned),
+                Wishlisted = g.Any(e => e.Source == EntrySource.Wishlist),
+            })
+            .Join(db.Apps, x => x.AppId, a => a.AppId, (x, a) => new { x.Owned, x.Wishlisted, App = a })
+            .Where(x => x.Wishlisted && x.App.DiscountPct > 0)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var appIds = rows.Select(r => r.App.AppId).ToList();
+
+        // One query for every series, grouped in memory — a few hundred rows at most.
+        var history = (await db.PricePoints
+                .Where(p => appIds.Contains(p.AppId))
+                .OrderBy(p => p.SeenUtc)
+                .Select(p => new { p.AppId, p.SeenUtc, p.FinalCents })
+                .AsNoTracking()
+                .ToListAsync(ct))
+            .GroupBy(p => p.AppId)
+            .ToDictionary(g => g.Key, g => g.Select(p => (p.SeenUtc, p.FinalCents)).ToList());
+
+        var sales = rows.Select(r =>
+        {
+            var points = history.TryGetValue(r.App.AppId, out var p)
+                ? p
+                : [];
+
+            return new SaleRow(
+                r.App.AppId,
+                r.App.Name,
+                r.App.DiscountPct,
+                r.App.PriceCents ?? 0,
+                r.App.OriginalPriceCents ?? r.App.PriceCents ?? 0,
+                r.App.FormattedPrice,
+                r.App.FormattedOriginalPrice,
+                r.App.DiscountEndsUtc,
+                r.App.SaleSeenUtc,
+                IsNew: lastRun is { } run && r.App.SaleSeenUtc is { } seen && seen >= run,
+                r.Owned,
+                LowestEverCents: points.Count > 0 ? points.Min(x => x.FinalCents) : null,
+                Points: points);
+        }).ToList();
+
+        var tracked = await db.Apps.CountAsync(a => a.PriceCents != null, ct);
+        var since = await db.PricePoints.OrderBy(p => p.SeenUtc).Select(p => (DateTime?)p.SeenUtc).FirstOrDefaultAsync(ct);
+
+        return new SalesView(
+            New: sales.Where(r => r.IsNew).OrderByDescending(r => r.DiscountPct).ToList(),
+            Ongoing: sales.Where(r => !r.IsNew).OrderByDescending(r => r.DiscountPct).ToList(),
+            TrackedWithPrices: tracked,
+            TotalSavingCents: sales.Sum(r => r.SavingCents),
+            ExampleFormatted: sales.FirstOrDefault()?.FormattedPrice,
+            ExampleCents: sales.FirstOrDefault()?.FinalCents,
+            TrackingSince: since,
+            LastSyncUtc: lastRun);
     }
 
     public async Task<List<DelayRow>> DelaysAsync(int take = 100, CancellationToken ct = default)

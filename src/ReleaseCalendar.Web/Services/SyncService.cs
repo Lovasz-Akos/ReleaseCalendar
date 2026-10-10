@@ -178,6 +178,50 @@ public sealed class SyncService(
                         run.DateChanges++;
                     }
 
+                    // ---- price -------------------------------------------------
+                    var price = PriceMapper.Map(item.BestPurchaseOption);
+
+                    var priceMoved = app.PriceCents != price.FinalCents
+                                  || app.OriginalPriceCents != price.OriginalCents
+                                  || app.DiscountPct != price.DiscountPct;
+
+                    if (price.HasPrice && priceMoved)
+                    {
+                        // Only written on an actual change, so the series stays sparse
+                        // and reads as a step chart.
+                        db.PricePoints.Add(new PricePoint
+                        {
+                            AppId = id,
+                            SeenUtc = now,
+                            FinalCents = price.FinalCents!.Value,
+                            OriginalCents = price.OriginalCents ?? price.FinalCents!.Value,
+                            DiscountPct = price.DiscountPct,
+                        });
+                        run.PriceChanges++;
+                    }
+
+                    // "New sale" means it wasn't discounted at the previous sync. On a cold
+                    // start there is no previous sync, so an already-running sale is not news
+                    // — otherwise the first run flags every discount on the wishlist.
+                    var knewPrice = app.PriceCents is not null;
+
+                    if (price.OnSale && app.DiscountPct == 0 && knewPrice)
+                    {
+                        app.SaleSeenUtc = now;
+                        run.NewSales++;
+                    }
+                    else if (!price.OnSale)
+                    {
+                        app.SaleSeenUtc = null;
+                    }
+
+                    app.PriceCents = price.FinalCents;
+                    app.OriginalPriceCents = price.OriginalCents;
+                    app.DiscountPct = price.DiscountPct;
+                    app.FormattedPrice = price.Formatted ?? app.FormattedPrice;
+                    app.FormattedOriginalPrice = price.FormattedOriginal ?? price.Formatted ?? app.FormattedOriginalPrice;
+                    app.DiscountEndsUtc = price.DiscountEndsUtc;
+
                     if (item.Name is { Length: > 0 } name) app.Name = name;
                     app.Resolved = true;
                     app.StoreUrlPath = item.StoreUrlPath ?? app.StoreUrlPath;
@@ -245,9 +289,10 @@ public sealed class SyncService(
 
         log.LogInformation(
             "Sync done in {Ms}ms — {Wishlist} wishlisted, {Owned} owned, {Refreshed} apps refreshed, "
-          + "{Changes} date change(s), {Requests} request(s).",
+          + "{Changes} date change(s), {Prices} price change(s), {NewSales} new sale(s), {Requests} request(s).",
             (int)(run.FinishedUtc - run.StartedUtc)!.Value.TotalMilliseconds,
-            run.WishlistItems, run.OwnedItems, run.AppsRefreshed, run.DateChanges, run.StoreRequests);
+            run.WishlistItems, run.OwnedItems, run.AppsRefreshed, run.DateChanges,
+            run.PriceChanges, run.NewSales, run.StoreRequests);
 
         return run;
     }
