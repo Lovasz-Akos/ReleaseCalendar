@@ -4,7 +4,16 @@ public sealed class CalendarOptions
 {
     public const string SectionName = "Calendar";
 
-    /// <summary>Your steamID64. Resolve a vanity URL with https://steamcommunity.com/id/&lt;name&gt;/?xml=1</summary>
+    /// <summary>
+    /// Who to track. Accepts a steamID64, a vanity name, or a pasted profile URL in
+    /// either form — a vanity is resolved once at startup with no API key needed.
+    /// </summary>
+    public string? Account { get; set; }
+
+    /// <summary>
+    /// An explicit steamID64. Takes precedence over <see cref="Account"/> and skips the
+    /// lookup entirely. Prefer Account unless you specifically want to pin the number.
+    /// </summary>
     public long SteamId { get; set; }
 
     /// <summary>
@@ -32,5 +41,5 @@ public sealed class CalendarOptions
     /// <summary>How long a release stays in the "out now, still wishlisted" tier.</summary>
     public int RecentlyReleasedDays { get; set; } = 180;
 
-    public bool HasOwnedGamesAccess => !string.IsNullOrWhiteSpace(ApiKey) && SteamId != 0;
+    public bool HasApiKey => !string.IsNullOrWhiteSpace(ApiKey);
 }

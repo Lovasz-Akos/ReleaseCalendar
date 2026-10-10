@@ -14,6 +14,7 @@ public sealed class SyncService(
     IDbContextFactory<CalendarDb> dbFactory,
     IServiceScopeFactory scopeFactory,
     IOptions<CalendarOptions> options,
+    SteamAccount account,
     TimeProvider clock,
     ILogger<SyncService> log)
 {
@@ -32,6 +33,11 @@ public sealed class SyncService(
         {
             using var scope = scopeFactory.CreateScope();
             var steam = scope.ServiceProvider.GetRequiredService<SteamClient>();
+
+            // A vanity name needs one network call to become an id. Retried here as well
+            // as at startup, so a Steam outage at boot doesn't leave the app inert.
+            await scope.ServiceProvider.GetRequiredService<SteamIdResolver>().EnsureResolvedAsync(ct);
+
             return await RunAsync(steam, force, ct);
         }
         finally
@@ -62,21 +68,22 @@ public sealed class SyncService(
 
         try
         {
-            if (opts.SteamId == 0)
+            if (!account.IsConfigured)
                 throw new InvalidOperationException(
-                    "Calendar:SteamId is not configured. Set it in appsettings.json or on the Settings page.");
+                    "No Steam account configured. Set Calendar:Account to a steamID64, a vanity "
+                  + "name, or a profile URL — see the Settings page.");
 
             // App rows must exist before entries can reference them.
             var ensured = (await db.Apps.Select(a => a.AppId).ToListAsync(ct)).ToHashSet();
 
             // ---- wishlist: keyless, one request ----------------------------------
-            var wishlist = await steam.GetWishlistAsync(opts.SteamId, ct);
+            var wishlist = await steam.GetWishlistAsync(account.SteamId, ct);
             run.WishlistItems = wishlist.Count;
 
             if (wishlist.Count > 0)
             {
                 await EnsureAppRowsAsync(db, wishlist.Select(w => w.AppId), ensured, ct);
-                Reconcile(db, opts.SteamId, EntrySource.Wishlist, await ExistingAsync(db, opts.SteamId, EntrySource.Wishlist, ct),
+                Reconcile(db, account.SteamId, EntrySource.Wishlist, await ExistingAsync(db, account.SteamId, EntrySource.Wishlist, ct),
                     wishlist.Select(w => new EntryInput(
                         w.AppId,
                         w.Priority,
@@ -85,14 +92,20 @@ public sealed class SyncService(
             }
 
             // ---- owned library: needs a Web API key ------------------------------
-            if (opts.HasOwnedGamesAccess)
+            var ownedNames = new Dictionary<int, string>();
+
+            if (opts.HasApiKey)
             {
-                var owned = await steam.GetOwnedGamesAsync(opts.SteamId, opts.ApiKey!, ct);
+                var owned = await steam.GetOwnedGamesAsync(account.SteamId, opts.ApiKey!, ct);
                 if (owned is not null)
                 {
+                    foreach (var g in owned)
+                        if (g.Name is { Length: > 0 } n)
+                            ownedNames[g.AppId] = n;
+
                     run.OwnedItems = owned.Count;
                     await EnsureAppRowsAsync(db, owned.Select(g => g.AppId), ensured, ct);
-                    Reconcile(db, opts.SteamId, EntrySource.Owned, await ExistingAsync(db, opts.SteamId, EntrySource.Owned, ct),
+                    Reconcile(db, account.SteamId, EntrySource.Owned, await ExistingAsync(db, account.SteamId, EntrySource.Owned, ct),
                         owned.Select(g => new EntryInput(g.AppId, null, null, g.PlaytimeForever)));
                 }
             }
@@ -101,7 +114,7 @@ public sealed class SyncService(
 
             // ---- refresh store metadata for new + stale apps ----------------------
             var tracked = await db.Entries
-                .Where(e => e.SteamId == opts.SteamId)
+                .Where(e => e.SteamId == account.SteamId)
                 .Select(e => e.AppId)
                 .Distinct()
                 .ToListAsync(ct);
@@ -205,6 +218,17 @@ public sealed class SyncService(
                         }
                     }
                 }
+            }
+
+            // The store won't name everything it owns up to: delisted apps, betas, and
+            // pre-release DLC such as a Call of Duty edition all come back nameless. But
+            // GetOwnedGames already told us, so prefer that over showing "App 4783780".
+            foreach (var (id, name) in ownedNames)
+            {
+                if (!apps.TryGetValue(id, out var app)) continue;
+                if (app.Name.Length != 0 && app.Name != $"App {id}") continue;
+
+                app.Name = name;
             }
 
             await db.SaveChangesAsync(ct);

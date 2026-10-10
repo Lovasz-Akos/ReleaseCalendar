@@ -15,9 +15,10 @@ public sealed class SyncWorker(
     {
         var opts = options.Value;
 
-        if (opts.SteamId == 0)
+        if (opts.SteamId == 0 && string.IsNullOrWhiteSpace(opts.Account))
         {
-            log.LogWarning("Calendar:SteamId is not set — background sync is idle. Set it on the Settings page.");
+            log.LogWarning("No Steam account configured — background sync is idle. "
+                          + "Set Calendar:Account to a steamID64 or vanity name.");
             return;
         }
 

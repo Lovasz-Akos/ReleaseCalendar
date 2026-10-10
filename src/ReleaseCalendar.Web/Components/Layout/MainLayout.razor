@@ -1,7 +1,7 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @inject CalendarQueries Queries
 @inject SyncService Sync
-@inject IOptions<CalendarOptions> Options
+@inject SteamAccount Account
 @implements IDisposable
 
 <nav class="appnav">
@@ -55,7 +55,7 @@
     private async Task RefreshStatusAsync()
     {
         var run = await Queries.LastSyncAsync();
-        var id = Options.Value.SteamId;
+        var id = Account.SteamId;
 
         if (run is null)
         {

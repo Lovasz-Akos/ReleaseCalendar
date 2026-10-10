@@ -1,7 +1,7 @@
 # Steam Release Calendar — Dockge stack
 #
 # Put these in this stack's .env file (Dockge has an editor for it):
-#   STEAM_ID=76561198xxxxxxxxx
+#   STEAM_ACCOUNT=your-vanity-name      # or a steamID64, or a profile URL
 #   STEAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 #   TZ=Europe/Budapest
 #
@@ -9,10 +9,7 @@
 # to main, so updating is `docker compose pull && docker compose up -d` — or the
 # Update button in Dockge. No build context needed on the server.
 #
-# While the GitHub repo is private the package is private too, so the server
-# needs to authenticate once:
-#   echo <PAT with read:packages> | docker login ghcr.io -u <github-user> --password-stdin
-# See deploy/MANUAL-DOCKER.md for the alternative (making just the package public).
+# The package is public, so the server pulls it anonymously — no docker login.
 
 services:
   releasecalendar:
@@ -31,8 +28,9 @@ services:
       - "5080:8080"
 
     environment:
-      # Your steamID64 — the wishlist half needs no key, just a public wishlist.
-      Calendar__SteamId: "${STEAM_ID:?set STEAM_ID in the stack .env}"
+      # A vanity name, a steamID64, or a pasted profile URL — all three work.
+      # The wishlist half needs no API key, just a public wishlist.
+      Calendar__Account: "${STEAM_ACCOUNT:?set STEAM_ACCOUNT in the stack .env}"
 
       # Read from the stack .env so the key never sits in the compose text.
       Calendar__ApiKey: "${STEAM_API_KEY:?set STEAM_API_KEY in the stack .env}"

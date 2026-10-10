@@ -20,7 +20,8 @@ about two seconds.
 
 | Key | Meaning |
 |---|---|
-| `SteamId` | Your steamID64 — **not committed**; set it per-environment (see below). Find it with `https://steamcommunity.com/id/<vanity>/?xml=1` |
+| `Account` | Who to track: a vanity name, a steamID64, or a pasted profile URL. **Not committed** — set it per-environment (see below). |
+| `SteamId` | An explicit steamID64 that skips the vanity lookup. Optional; `Account` is usually easier. |
 | `ApiKey` | Only needed for owned games — **set it with user-secrets, not here** |
 | `SyncIntervalHours` | Background sync cadence (default 6) |
 | `CountryCode` / `Language` | Store region for names and dates (default `US` / `english`) |
@@ -28,16 +29,22 @@ about two seconds.
 
 The wishlist half needs **no API key** — just a public wishlist.
 
-Neither your steamID nor the key is committed: `appsettings.json` ships `"SteamId": 0`,
-which the app reports as "no steamID configured" rather than failing obscurely. Set both
-locally with user-secrets:
+Neither your account nor the key is committed: `appsettings.json` ships them empty, and the
+app reports "no account configured" rather than failing obscurely. Set them locally with
+user-secrets:
 
 ```
-dotnet user-secrets --project src/ReleaseCalendar.Web set "Calendar:SteamId" "<your steamID64>"
+dotnet user-secrets --project src/ReleaseCalendar.Web set "Calendar:Account" "your-vanity-name"
 ```
 
-In Docker they come from the stack `.env` as `STEAM_ID` and `STEAM_API_KEY`; under systemd,
-from `/etc/releasecalendar.env`.
+A vanity name is resolved to a steamID64 once at startup, keylessly, via the profile's own
+XML endpoint — the same trick that finds your id in the first place. Resolution failure is
+logged and retried by the background sync rather than stopping the app, and the Settings page
+shows what the name resolved to. Note a vanity name is mutable: set `Calendar:SteamId` to the
+number instead if you want it pinned.
+
+In Docker these come from the stack `.env` as `STEAM_ACCOUNT` and `STEAM_API_KEY`; under
+systemd, from `/etc/releasecalendar.env`.
 
 For owned games:
 

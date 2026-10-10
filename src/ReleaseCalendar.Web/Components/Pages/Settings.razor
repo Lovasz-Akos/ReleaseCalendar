@@ -2,6 +2,7 @@
 @inherits DataComponent
 @inject CalendarQueries Queries
 @inject IOptions<CalendarOptions> Options
+@inject SteamAccount Account
 @inject NavigationManager Nav
 
 <PageTitle>Settings — ReleaseCal</PageTitle>
@@ -21,12 +22,24 @@
         <code>dotnet user-secrets set "Calendar:ApiKey" "…"</code> instead.
     </p>
     <dl class="kv">
-        <dt>steamID64</dt>
-        <dd class="mono">@(Options.Value.SteamId == 0 ? "not set" : Options.Value.SteamId.ToString())</dd>
+        <dt>Configured as</dt>
+        <dd class="mono">@(string.IsNullOrWhiteSpace(Options.Value.Account) ? (Options.Value.SteamId == 0 ? "not set" : Options.Value.SteamId.ToString()) : Options.Value.Account)</dd>
+
+        <dt>Resolved to</dt>
+        <dd class="mono">
+            @if (Account.IsConfigured)
+            {
+                <text>@Account.SteamId</text> <span style="color:var(--ink-3)">· @Account.Source</span>
+            }
+            else
+            {
+                <span style="color:var(--danger)">unresolved — check the name, or set a numeric steamID64</span>
+            }
+        </dd>
 
         <dt>API key</dt>
         <dd>
-            @if (Options.Value.HasOwnedGamesAccess)
+            @if (Options.Value.HasApiKey)
             {
                 <span style="color:var(--ok)">set — owned games will sync</span>
             }
@@ -133,7 +146,7 @@
     {
         _run = await Queries.LastSyncAsync();
 
-        var id = Options.Value.SteamId;
+        var id = Account.SteamId;
         _feedPath = id == 0 ? "feed.ics" : $"feed/{id}.ics";
         _feedUrl = new Uri(new Uri(Nav.BaseUri), _feedPath).ToString();
     }

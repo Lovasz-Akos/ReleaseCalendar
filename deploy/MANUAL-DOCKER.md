@@ -38,7 +38,7 @@ never dealing with registry auth again. It does publish the compiled app.
 Paste the contents of `compose.yaml` into a new Dockge stack, fill in the `.env`:
 
 ```
-STEAM_ID=76561198xxxxxxxxx
+STEAM_ACCOUNT=your-vanity-name
 STEAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TZ=Europe/Budapest
 ```
@@ -108,7 +108,7 @@ services:
       - "5080:8080"
     environment:
       ASPNETCORE_URLS: "http://+:8080"
-      Calendar__SteamId: "${STEAM_ID:?set STEAM_ID in the stack .env}"
+      Calendar__Account: "${STEAM_ACCOUNT:?set STEAM_ACCOUNT in the stack .env}"
       Calendar__ApiKey: "${STEAM_API_KEY:?set STEAM_API_KEY in the stack .env}"
       Calendar__DatabasePath: "/data/calendar.db"
       TZ: "${TZ:-UTC}"

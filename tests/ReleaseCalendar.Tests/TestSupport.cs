@@ -76,9 +76,21 @@ internal sealed class TestHost : IAsyncDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
 
+        var opts = options ?? new CalendarOptions { SteamId = 76561190000000000 };
+
         var services = new ServiceCollection();
         services.AddLogging(b => b.ClearProviders());
-        services.AddSingleton(Options.Create(options ?? new CalendarOptions { SteamId = 76561190000000000 }));
+        services.AddSingleton(Options.Create(opts));
+
+        // Pre-resolved: these tests aren't exercising vanity lookup, and a configured
+        // account makes EnsureResolvedAsync a no-op with no HTTP call.
+        services.AddSingleton(new SteamAccount { SteamId = opts.SteamId, Source = "test" });
+        services.AddSingleton(sp => new SteamIdResolver(
+            new HttpClient(Handler) { BaseAddress = new Uri("https://steamcommunity.com/") },
+            sp.GetRequiredService<SteamAccount>(),
+            sp.GetRequiredService<IOptions<CalendarOptions>>(),
+            NullLogger<SteamIdResolver>.Instance));
+
         services.AddSingleton<TimeProvider>(Clock);
         services.AddDbContextFactory<CalendarDb>(o => o.UseSqlite(_connection));
         services.AddSingleton(sp => SteamClientFactory.Create(Handler));

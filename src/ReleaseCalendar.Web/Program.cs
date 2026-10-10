@@ -31,6 +31,8 @@ builder.Services.AddHttpClient<SteamClient>(c =>
     c.DefaultRequestHeaders.UserAgent.ParseAdd("ReleaseCalendar/1.0 (+personal use)");
 });
 
+builder.Services.AddSingleton<SteamAccount>();
+builder.Services.AddHttpClient<SteamIdResolver>();
 builder.Services.AddSingleton<SyncService>();
 builder.Services.AddScoped<CalendarQueries>();
 builder.Services.AddScoped<IcsFeed>();
@@ -49,6 +51,14 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+// Turn a vanity name or profile URL into a steamID64 once, so everything downstream
+// stays synchronous. A failure here is logged, not fatal: the UI reports it and the
+// background sync retries.
+using (var scope = app.Services.CreateScope())
+{
+    await scope.ServiceProvider.GetRequiredService<SteamIdResolver>().EnsureResolvedAsync();
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -65,9 +75,9 @@ app.MapRazorComponents<App>()
 
 // Subscribe to this in Google Calendar, Outlook or iOS and releases keep arriving.
 app.MapGet("/feed/{steamId:long}.ics", async (
-    long steamId, IcsFeed feed, IOptions<CalendarOptions> opts, CancellationToken ct) =>
+    long steamId, IcsFeed feed, SteamAccount account, CancellationToken ct) =>
 {
-    if (steamId != opts.Value.SteamId) return Results.NotFound();
+    if (steamId != account.SteamId) return Results.NotFound();
     return Results.Text(await feed.BuildAsync(ct), "text/calendar; charset=utf-8");
 });
 

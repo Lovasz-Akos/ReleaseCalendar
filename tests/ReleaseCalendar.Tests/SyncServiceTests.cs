@@ -195,14 +195,14 @@ public class SyncServiceTests
     }
 
     [Fact]
-    public async Task a_missing_steam_id_is_reported_not_thrown()
+    public async Task a_missing_account_is_reported_not_thrown()
     {
         await using var host = new TestHost(new SteamStub().Build(), new CalendarOptions { SteamId = 0 });
 
         var run = await host.Sync.SyncAsync();
 
         Assert.NotNull(run.Error);
-        Assert.Contains("SteamId", run.Error);
+        Assert.Contains("No Steam account configured", run.Error);
         Assert.NotNull(run.FinishedUtc);
     }
 

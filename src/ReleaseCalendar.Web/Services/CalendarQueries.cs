@@ -81,11 +81,12 @@ public sealed record DelayRow(
 public sealed class CalendarQueries(
     IDbContextFactory<CalendarDb> dbFactory,
     IOptions<CalendarOptions> options,
+    SteamAccount account,
     TimeProvider clock)
 {
     public DateOnly Today => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 
-    private long SteamId => options.Value.SteamId;
+    private long SteamId => account.SteamId;
 
     /// <summary>
     /// Every event for the configured account. A couple of hundred rows at most, so it is
