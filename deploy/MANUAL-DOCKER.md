@@ -165,6 +165,8 @@ Then <http://$SERVER:5080>.
 
 | Symptom | Cause |
 |---|---|
+| `Failed to determine the https port for redirect` | fixed in d6+: the app now only redirects when it actually serves HTTPS. A container is "Production" while serving plain HTTP, which used to trip the redirect middleware on every request. TLS belongs to a reverse proxy, not this app. |
+| `The key {...} was not found in the key ring` | fixed in d6+: Data Protection keys now live in `/data/dataprotection-keys` on the volume. Previously they were written inside the container and lost on every image update, so browsers holding an antiforgery cookie failed to validate. Harmless but noisy; a reload issued a fresh token. |
 | `unable to open database file` / `SQLITE_READONLY` | the `/data` mount isn't writable by uid 1654. Named volumes inherit ownership from the image; a **bind** mount needs `chown 1654:1654` on the host directory |
 | `STEAM_API_KEY` variable is not set | the stack `.env` is missing it. Compose fails fast by design rather than starting with the owned-games half silently dead |
 | Container runs, nothing on the LAN | the port isn't published, or the host firewall blocks 5080 (`sudo ufw allow 5080/tcp`) |

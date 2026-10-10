@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using ReleaseCalendar.Web;
@@ -19,8 +20,18 @@ var dbPath = string.IsNullOrWhiteSpace(configuredDbPath)
     ? Path.Combine(builder.Environment.ContentRootPath, "calendar.db")
     : Path.GetFullPath(configuredDbPath);
 
-Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+var dataDir = Path.GetDirectoryName(dbPath)!;
+Directory.CreateDirectory(dataDir);
 builder.Services.AddDbContextFactory<CalendarDb>(o => o.UseSqlite($"Data Source={dbPath}"));
+
+// Data Protection keys sit beside the database, which means on the mounted volume.
+// Left at the default they are written inside the container and thrown away on every
+// image update — after which any browser still holding an antiforgery cookie fails
+// with "the key was not found in the key ring". SetApplicationName keeps the purpose
+// string stable so a replaced container accepts tokens the previous one issued.
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDir, "dataprotection-keys")))
+    .SetApplicationName("ReleaseCalendar");
 
 // The only component that talks to Valve. Nothing here is reachable from a browser:
 // none of these endpoints send CORS headers.
@@ -62,6 +73,18 @@ using (var scope = app.Services.CreateScope())
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
+}
+
+// Only redirect when this process actually serves HTTPS. A container listening on
+// plain HTTP is still "Production", and the redirect middleware then logs
+// "Failed to determine the https port for redirect" on every single request. If TLS
+// is terminated by a reverse proxy, the proxy redirects — not this app.
+var boundUrls = builder.Configuration["urls"]
+             ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
+             ?? "";
+
+if (boundUrls.Contains("https://", StringComparison.OrdinalIgnoreCase))
+{
     app.UseHsts();
     app.UseHttpsRedirection();
 }
